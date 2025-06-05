@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 import pickle
 
 # If modifying these scopes, delete the file token.pickle.
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+SCOPES = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.modify']
 
 def get_gmail_service():
     """Get Gmail API service instance."""
@@ -51,7 +51,7 @@ def read_broker_data(csv_path: str) -> List[Dict[str, str]]:
 def create_deletion_email(first_name: str, last_name: str, user_email: str, broker_name: str) -> MIMEMultipart:
     """Create a data deletion request email."""
     msg = MIMEMultipart()
-    msg['Subject'] = f'Data Deletion Request - {first_name} {last_name}'
+    msg['Subject'] = f'[Data Deletion Request] {broker_name} - {first_name} {last_name}'
     
     body = f"""Dear {broker_name} Data Privacy Team,
 
@@ -72,17 +72,39 @@ Best regards,
     msg.attach(MIMEText(body, 'plain'))
     return msg
 
+def ensure_label_exists(service, label_name: str) -> str:
+    """Ensure the label exists and return its ID."""
+    # Check if label already exists
+    results = service.users().labels().list(userId='me').execute()
+    labels = results.get('labels', [])
+
+    for label in labels:
+        if label['name'] == label_name:
+            return label['id']
+
+    # Create label if it doesn't exist
+    label_object = {
+        'name': label_name,
+        'labelListVisibility': 'labelShow',
+        'messageListVisibility': 'show'
+    }
+    created_label = service.users().labels().create(userId='me', body=label_object).execute()
+    return created_label['id']
+
 def send_deletion_requests(first_name: str, last_name: str, user_email: str, test_email: str = None):
     """Send data deletion requests to all data brokers with email addresses."""
     # Get the directory of the current script
     script_dir = Path(__file__).parent
     csv_path = script_dir / 'broker_lists' / 'current.csv'
-    
+
     brokers = read_broker_data(str(csv_path))
-    
+
     # Get Gmail service
     service = get_gmail_service()
-    
+
+    # Ensure the label exists
+    label_id = ensure_label_exists(service, 'Data Deletion Requests')
+
     for broker in brokers:
         try:
             msg = create_deletion_email(first_name, last_name, user_email, broker['name'])
@@ -94,16 +116,23 @@ def send_deletion_requests(first_name: str, last_name: str, user_email: str, tes
                 print(f"DEV MODE: Would send to {broker['name']} ({broker['email']})")
             else:
                 msg['To'] = broker['email']
-            
+
             # Convert message to raw format
             raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
             
-            # Send message
-            service.users().messages().send(
+            # Send message and get the sent message ID
+            sent_message = service.users().messages().send(
                 userId='me',
                 body={'raw': raw_message}
             ).execute()
-            
+
+            # Add label to the sent message
+            service.users().messages().modify(
+                userId='me',
+                id=sent_message['id'],
+                body={'addLabelIds': [label_id]}
+            ).execute()
+
             if test_email:
                 print(f"✓ Sent test email to {test_email} (simulating {broker['name']})")
             else:
