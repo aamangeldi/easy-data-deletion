@@ -17,5 +17,5 @@
 
 3. Run in test mode:
     ```
-    python data_deletion/main.py --first-name <First-Name> --last-name <Last-Name> --email <Your-Email> --dev --test-email <Test-Email-To-Send-Emails-To>
+    python data_deletion/request_via_email.py --first-name <First-Name> --last-name <Last-Name> --email <Your-Email> --dev --test-email <Test-Email-To-Send-Emails-To>
     ```
