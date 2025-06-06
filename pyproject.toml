@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "easy-data-deletion"
-version = "0.1.0"
+version = "0.0.1"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Amir Amangeldi <amir.amangeldi@gmail.com>", "Roy Rinberg <royrinberg@gmail.com>"]
 readme = "README.md"
 packages = [
 	{include = "data_deletion"},
@@ -10,7 +10,6 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-
 
 [build-system]
 requires = ["poetry-core"]

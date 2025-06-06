@@ -1,0 +1,6 @@
+# Virtual environment
+.venv/
+
+# Google OAuth credentials
+credentials.json
+token.pickle
