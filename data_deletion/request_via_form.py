@@ -14,11 +14,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+
 def ensure_screenshots_dir():
     """Ensure the screenshots directory exists."""
     screenshots_dir = Path(__file__).parent / 'screenshots'
     screenshots_dir.mkdir(exist_ok=True)
     return screenshots_dir
+
 
 def get_broker_url(broker_name: str) -> str:
     """Get the form URL for a specific broker."""
@@ -31,6 +33,7 @@ def get_broker_url(broker_name: str) -> str:
             if row['name'] == broker_name:
                 return row['website']
     return None
+
 
 def analyze_form(page) -> Dict:
     """Analyze the form structure and return field information."""
@@ -63,7 +66,8 @@ def analyze_form(page) -> Dict:
         form_info['fields'].append(field_info)
 
     # Find submit button
-    submit_button = page.query_selector('button[type="submit"], input[type="submit"]')
+    submit_button = page.query_selector(
+        'button[type="submit"], input[type="submit"]')
     if submit_button:
         form_info['submit_button'] = {
             'text': submit_button.inner_text(),
@@ -72,8 +76,10 @@ def analyze_form(page) -> Dict:
 
     return form_info
 
+
 def create_browser_tools(page, user_data: Dict[str, str]):
     """Create browser interaction tools for the agent."""
+
     def get_page_content() -> str:
         """Get the current page content and form structure."""
         return json.dumps(analyze_form(page))
@@ -106,14 +112,13 @@ def create_browser_tools(page, user_data: Dict[str, str]):
         StructuredTool.from_function(
             func=get_page_content,
             name="get_page_content",
-            description="Get the current page content and form structure."
-        ),
+            description="Get the current page content and form structure."),
         StructuredTool.from_function(
             func=fill_user_data,
             name="fill_user_data",
-            description="Fill in the user's personal information in the form."
-        )
+            description="Fill in the user's personal information in the form.")
     ]
+
 
 def fill_acxiom_form(first_name: str, last_name: str, email: str):
     """Fill out Acxiom's data deletion form using Playwright and LangChain."""
@@ -134,8 +139,12 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
         # Launch browser
         browser = p.chromium.launch(headless=False)
         context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            viewport={
+                'width': 1920,
+                'height': 1080
+            },
+            user_agent=
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         )
 
         # Create a new page
@@ -163,7 +172,8 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo")
 
             prompt = ChatPromptTemplate.from_messages([
-                ("system", """You are an AI assistant helping to fill out a data deletion request form.
+                ("system",
+                 """You are an AI assistant helping to fill out a data deletion request form.
                 Your goal is to help the user request deletion of their personal information.
                 You have access to the following tools:
                 - get_page_content: Get the current page content and form structure
@@ -187,7 +197,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             ])
 
             agent = create_openai_functions_agent(llm, tools, prompt)
-            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+            agent_executor = AgentExecutor(agent=agent,
+                                           tools=tools,
+                                           verbose=True)
 
             print("\n=== TEST MODE ===")
             print("The agent will fill the form but WILL NOT submit it.")
@@ -199,7 +211,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             # Take a screenshot
             filled_screenshot = screenshots_dir / "acxiom_form_filled.png"
             page.screenshot(path=str(filled_screenshot))
-            print(f"\nForm was filled successfully. Screenshot saved as {filled_screenshot}")
+            print(
+                f"\nForm was filled successfully. Screenshot saved as {filled_screenshot}"
+            )
             print("\n=== TEST COMPLETE ===")
             print("Please review the form in the browser and the screenshots.")
             print("The form has NOT been submitted.")
@@ -215,19 +229,18 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
         finally:
             browser.close()
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Fill out data broker deletion forms.')
+    parser = argparse.ArgumentParser(
+        description='Fill out data broker deletion forms.')
     parser.add_argument('--first-name', required=True, help='Your first name')
     parser.add_argument('--last-name', required=True, help='Your last name')
     parser.add_argument('--email', required=True, help='Your email address')
 
     args = parser.parse_args()
 
-    fill_acxiom_form(
-        args.first_name,
-        args.last_name,
-        args.email
-    )
+    fill_acxiom_form(args.first_name, args.last_name, args.email)
+
 
 if __name__ == '__main__':
     main()

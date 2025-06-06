@@ -12,9 +12,13 @@ from googleapiclient.discovery import build
 import pickle
 
 # If modifying these scopes, delete the file token.pickle.
-SCOPES = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.modify']
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.modify'
+]
 
-def get_gmail_service(creds = None):
+
+def get_gmail_service(creds=None):
     """Get Gmail API service instance."""
     if creds is None:
         # The file token.pickle stores the user's access and refresh tokens
@@ -28,7 +32,9 @@ def get_gmail_service(creds = None):
                 creds.refresh(Request())
             else:
                 if not os.path.exists('credentials.json'):
-                    raise FileNotFoundError("credentials.json not found. See README.md for instructions.")
+                    raise FileNotFoundError(
+                        "credentials.json not found. See README.md for instructions."
+                    )
                 flow = InstalledAppFlow.from_client_secrets_file(
                     'credentials.json', SCOPES)
                 creds = flow.run_local_server(port=0)
@@ -37,6 +43,7 @@ def get_gmail_service(creds = None):
                 pickle.dump(creds, token)
 
     return build('gmail', 'v1', credentials=creds)
+
 
 def read_broker_data(csv_path: str) -> List[Dict[str, str]]:
     """Read data broker information from CSV file."""
@@ -48,11 +55,13 @@ def read_broker_data(csv_path: str) -> List[Dict[str, str]]:
                 brokers.append(row)
     return brokers
 
-def create_deletion_email(first_name: str, last_name: str, user_email: str, broker_name: str) -> MIMEMultipart:
+
+def create_deletion_email(first_name: str, last_name: str, user_email: str,
+                          broker_name: str) -> MIMEMultipart:
     """Create a data deletion request email."""
     msg = MIMEMultipart()
     msg['Subject'] = f'[Data Deletion Request] {broker_name} - {first_name} {last_name}'
-    
+
     body = f"""Dear {broker_name} Data Privacy Team,
 
 I am writing to request the deletion of my personal information from your database under my rights under various privacy laws including CCPA, GDPR, and other applicable data protection regulations.
@@ -72,6 +81,7 @@ Best regards,
     msg.attach(MIMEText(body, 'plain'))
     return msg
 
+
 def ensure_label_exists(service, label_name: str) -> str:
     """Ensure the label exists and return its ID."""
     # Check if label already exists
@@ -88,10 +98,15 @@ def ensure_label_exists(service, label_name: str) -> str:
         'labelListVisibility': 'labelShow',
         'messageListVisibility': 'show'
     }
-    created_label = service.users().labels().create(userId='me', body=label_object).execute()
+    created_label = service.users().labels().create(
+        userId='me', body=label_object).execute()
     return created_label['id']
 
-def send_deletion_requests(first_name: str, last_name: str, user_email: str, test_email: str = None):
+
+def send_deletion_requests(first_name: str,
+                           last_name: str,
+                           user_email: str,
+                           test_email: str = None):
     """Send data deletion requests to all data brokers with email addresses."""
     # Get the directory of the current script
     script_dir = Path(__file__).parent
@@ -107,58 +122,69 @@ def send_deletion_requests(first_name: str, last_name: str, user_email: str, tes
 
     for broker in brokers:
         try:
-            msg = create_deletion_email(first_name, last_name, user_email, broker['name'])
+            msg = create_deletion_email(first_name, last_name, user_email,
+                                        broker['name'])
             msg['From'] = user_email
-            
+
             # If in dev mode, send to test email instead
             if test_email:
                 msg['To'] = test_email
-                print(f"DEV MODE: Would send to {broker['name']} ({broker['email']})")
+                print(
+                    f"DEV MODE: Would send to {broker['name']} ({broker['email']})"
+                )
             else:
                 msg['To'] = broker['email']
 
             # Convert message to raw format
-            raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-            
+            raw_message = base64.urlsafe_b64encode(
+                msg.as_bytes()).decode('utf-8')
+
             # Send message and get the sent message ID
-            sent_message = service.users().messages().send(
-                userId='me',
-                body={'raw': raw_message}
-            ).execute()
+            sent_message = service.users().messages().send(userId='me',
+                                                           body={
+                                                               'raw':
+                                                               raw_message
+                                                           }).execute()
 
             # Add label to the sent message
-            service.users().messages().modify(
-                userId='me',
-                id=sent_message['id'],
-                body={'addLabelIds': [label_id]}
-            ).execute()
+            service.users().messages().modify(userId='me',
+                                              id=sent_message['id'],
+                                              body={
+                                                  'addLabelIds': [label_id]
+                                              }).execute()
 
             if test_email:
-                print(f"✓ Sent test email to {test_email} (simulating {broker['name']})")
+                print(
+                    f"✓ Sent test email to {test_email} (simulating {broker['name']})"
+                )
             else:
-                print(f"✓ Sent deletion request to {broker['name']} ({broker['email']})")
+                print(
+                    f"✓ Sent deletion request to {broker['name']} ({broker['email']})"
+                )
         except Exception as e:
             print(f"✗ Failed to send to {broker['name']}: {str(e)}")
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Send data deletion requests to data brokers.')
+    parser = argparse.ArgumentParser(
+        description='Send data deletion requests to data brokers.')
     parser.add_argument('--first-name', required=True, help='Your first name')
     parser.add_argument('--last-name', required=True, help='Your last name')
     parser.add_argument('--email', required=True, help='Your Gmail address')
-    parser.add_argument('--dev', action='store_true', help='Run in development mode (sends to test email)')
-    parser.add_argument('--test-email', help='Test email address for development mode')
-    
+    parser.add_argument('--dev',
+                        action='store_true',
+                        help='Run in development mode (sends to test email)')
+    parser.add_argument('--test-email',
+                        help='Test email address for development mode')
+
     args = parser.parse_args()
-    
+
     if args.dev and not args.test_email:
         parser.error("--test-email is required when using --dev flag")
-    
-    send_deletion_requests(
-        args.first_name,
-        args.last_name,
-        args.email,
-        args.test_email if args.dev else None
-    )
+
+    send_deletion_requests(args.first_name, args.last_name, args.email,
+                           args.test_email if args.dev else None)
+
 
 if __name__ == '__main__':
     main()
