@@ -4,3 +4,6 @@
 # Google OAuth credentials
 credentials.json
 token.pickle
+
+# Environment variables
+.env
