@@ -35,4 +35,3 @@ def get_accuracy(model,
             print(f"predictions: {predictions}")
             print(f"corrects: {corrects}")
     return corrects
-

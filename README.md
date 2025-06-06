@@ -32,3 +32,9 @@ Create virtual env and install dependencies:
     ```
     python data_deletion/request_via_form.py --first-name <First-Name> --last-name <Last-Name> --email <Your-Email>
     ```
+
+## Contributing
+
+To set up git hooks properly, please run
+`git config core.hooksPath .githooks`
+(once). This will enable hooks such as running `yapf` on all python files
