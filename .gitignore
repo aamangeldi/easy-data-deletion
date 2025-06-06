@@ -7,3 +7,6 @@ token.pickle
 
 # Environment variables
 .env
+
+# Screenshots
+data_deletion/screenshots/

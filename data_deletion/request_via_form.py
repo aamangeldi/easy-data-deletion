@@ -14,6 +14,12 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+def ensure_screenshots_dir():
+    """Ensure the screenshots directory exists."""
+    screenshots_dir = Path(__file__).parent / 'screenshots'
+    screenshots_dir.mkdir(exist_ok=True)
+    return screenshots_dir
+
 def get_broker_url(broker_name: str) -> str:
     """Get the form URL for a specific broker."""
     script_dir = Path(__file__).parent
@@ -103,6 +109,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
     if not os.getenv("OPENAI_API_KEY"):
         raise ValueError("Please set OPENAI_API_KEY environment variable")
     
+    # Ensure screenshots directory exists
+    screenshots_dir = ensure_screenshots_dir()
+
     with sync_playwright() as p:
         # Launch browser
         browser = p.chromium.launch(headless=False)
@@ -125,8 +134,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             page.wait_for_load_state('networkidle')
             
             # Take initial screenshot
-            page.screenshot(path="acxiom_form_initial.png")
-            print("\nInitial form state saved as acxiom_form_initial.png")
+            initial_screenshot = screenshots_dir / "acxiom_form_initial.png"
+            page.screenshot(path=str(initial_screenshot))
+            print(f"\nInitial form state saved as {initial_screenshot}")
             
             # Create tools for the agent
             tools = create_browser_tools(page)
@@ -177,8 +187,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             })
             
             # Take a screenshot
-            page.screenshot(path="acxiom_form_filled.png")
-            print("\nForm was filled successfully. Screenshot saved as acxiom_form_filled.png")
+            filled_screenshot = screenshots_dir / "acxiom_form_filled.png"
+            page.screenshot(path=str(filled_screenshot))
+            print(f"\nForm was filled successfully. Screenshot saved as {filled_screenshot}")
             print("\n=== TEST COMPLETE ===")
             print("Please review the form in the browser and the screenshots.")
             print("The form has NOT been submitted.")
@@ -188,8 +199,9 @@ def fill_acxiom_form(first_name: str, last_name: str, email: str):
             
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            page.screenshot(path="acxiom_form_error.png")
-            print("Error screenshot saved as acxiom_form_error.png")
+            error_screenshot = screenshots_dir / "acxiom_form_error.png"
+            page.screenshot(path=str(error_screenshot))
+            print(f"Error screenshot saved as {error_screenshot}")
         finally:
             browser.close()
 
