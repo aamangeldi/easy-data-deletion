@@ -58,23 +58,3 @@ def get_broker_email_domains(broker_name: str) -> List[str]:
         # Add more brokers as needed
     }
     return broker_domains.get(broker_name, [])
-
-def get_broker_form_fields(broker_name: str) -> Dict[str, str]:
-    """Get the form field mappings for a specific broker.
-    
-    Args:
-        broker_name: Name of the data broker
-    
-    Returns:
-        Dictionary mapping user data fields to form field IDs
-    """
-    # Map of broker names to their form field mappings
-    broker_fields = {
-        'Acxiom': {
-            'first_name': 'firstNameDSARElement',
-            'last_name': 'lastNameDSARElement',
-            'email': 'emailDSARElement'
-        },
-        # Add more brokers as needed
-    }
-    return broker_fields.get(broker_name, {})

@@ -8,12 +8,9 @@ from utils import (
     get_gmail_service,
     create_browser_context,
     take_screenshot,
-    create_browser_tools,
     create_form_agent,
     get_default_form_prompt,
-    check_confirmation_email,
-    ACXIOM_DELETE_FORM_URL,
-    get_broker_email_domains
+    ACXIOM_DELETE_FORM_URL
 )
 
 # Load environment variables
@@ -50,32 +47,30 @@ def run_delete_flow(first_name: str, last_name: str, email: str):
             # Take initial screenshot
             take_screenshot(page, "acxiom_form_initial")
 
-            # Create tools and agent
-            tools = create_browser_tools(page, user_data)
+            # Create agent with email capabilities
             agent = create_form_agent(
-                tools=tools,
-                system_prompt=get_default_form_prompt()
+                page=page,
+                user_data=user_data,
+                system_prompt=get_default_form_prompt(),
+                gmail_service=gmail_service  # Pass Gmail service for email confirmation
             )
 
             # Run the agent
-            print("\nFilling out the form...")
-            agent.invoke({})
+            print("\nStarting deletion request process...")
+            result = agent.invoke({
+                "broker_name": "Acxiom",  # Pass broker name for email confirmation
+                "wait_time": 300  # 5 minutes wait time for confirmation
+            })
 
             # Take a screenshot after form is filled
             take_screenshot(page, "acxiom_form_filled")
 
-            # Wait for confirmation email
-            if check_confirmation_email(
-                service=gmail_service,
-                user_email=email,
-                from_domains=get_broker_email_domains('Acxiom')
-            ):
-                print("\n✓ Data deletion request submitted successfully!")
-            else:
-                print("\n⚠ Data deletion request may not have been processed. Please check your email manually.")
+            # The agent will handle email confirmation and report the status
+            print("\n=== Deletion Request Status ===")
+            print(result.get('output', 'No status information available'))
 
         except Exception as e:
-            print(f"\n✗ An error occurred: {str(e)}")
+            print(f"\nAn error occurred: {str(e)}")
             take_screenshot(page, "acxiom_form_error")
         finally:
             browser.close()

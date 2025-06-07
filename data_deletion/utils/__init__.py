@@ -28,7 +28,6 @@ from .broker import (
     get_broker_url,
     read_broker_data,
     get_broker_email_domains,
-    get_broker_form_fields,
     ACXIOM_DELETE_FORM_URL,
     ACXIOM_OPTOUT_URL
 )
@@ -59,7 +58,6 @@ __all__ = [
     'get_broker_url',
     'read_broker_data',
     'get_broker_email_domains',
-    'get_broker_form_fields',
     'ACXIOM_DELETE_FORM_URL',
     'ACXIOM_OPTOUT_URL'
 ] 

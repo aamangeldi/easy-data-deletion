@@ -1,7 +1,7 @@
 """Browser automation utility functions for data deletion automation."""
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from pathlib import Path
-from playwright.sync_api import Page, Browser, BrowserContext
+from playwright.sync_api import Page, Browser, BrowserContext, ElementHandle
 
 def create_browser_context(browser: Browser) -> BrowserContext:
     """Create a new browser context with standard settings.
@@ -43,7 +43,7 @@ def take_screenshot(page: Page, name: str) -> Path:
     return screenshot_path
 
 def analyze_form(page: Page) -> Dict:
-    """Analyze the form structure and return field information.
+    """Analyze a form's structure and elements.
     
     Args:
         page: Playwright page instance
@@ -54,39 +54,139 @@ def analyze_form(page: Page) -> Dict:
     form_info = {
         'fields': [],
         'submit_button': None,
-        'page_title': page.title(),
-        'url': page.url
+        'form_element': None
     }
 
-    # Get all form elements
-    form_elements = page.query_selector_all('input, select, textarea')
-    for element in form_elements:
+    # Find all form elements
+    forms = page.query_selector_all('form')
+    if not forms:
+        # If no form element found, look for input fields that might be part of a form
+        inputs = page.query_selector_all('input, select, textarea')
+        if inputs:
+            form_info['form_element'] = {'type': 'implicit', 'fields': len(inputs)}
+    else:
+        # Analyze each form
+        for form in forms:
+            form_id = form.get_attribute('id') or ''
+            form_class = form.get_attribute('class') or ''
+            form_info['form_element'] = {
+                'type': 'explicit',
+                'id': form_id,
+                'class': form_class
+            }
+
+    # Find all input fields
+    inputs = page.query_selector_all('input, select, textarea')
+    for input_elem in inputs:
         field_info = {
-            'type': element.get_attribute('type') or 'text',
-            'name': element.get_attribute('name'),
-            'id': element.get_attribute('id'),
-            'placeholder': element.get_attribute('placeholder'),
-            'required': element.get_attribute('required') is not None,
-            'label': None
+            'id': input_elem.get_attribute('id') or '',
+            'name': input_elem.get_attribute('name') or '',
+            'type': input_elem.get_attribute('type') or 'text',
+            'label': '',
+            'placeholder': input_elem.get_attribute('placeholder') or '',
+            'required': input_elem.get_attribute('required') is not None,
+            'value': input_elem.get_attribute('value') or ''
         }
 
         # Try to find associated label
         if field_info['id']:
-            label = page.query_selector(f"label[for='{field_info['id']}']")
+            label = page.query_selector(f'label[for="{field_info["id"]}"]')
             if label:
-                field_info['label'] = label.inner_text()
+                field_info['label'] = label.inner_text().strip()
+        else:
+            # Look for parent label
+            parent_label = input_elem.evaluate('elem => elem.closest("label")')
+            if parent_label:
+                field_info['label'] = parent_label.inner_text().strip()
 
         form_info['fields'].append(field_info)
 
-    # Find submit button
+    # Find submit button with various strategies
+    submit_button = None
+    button_info = None
+
+    # Strategy 1: Look for explicit submit buttons
     submit_button = page.query_selector('button[type="submit"], input[type="submit"]')
     if submit_button:
-        form_info['submit_button'] = {
-            'text': submit_button.inner_text(),
-            'type': submit_button.get_attribute('type')
+        button_info = {
+            'type': 'explicit_submit',
+            'id': submit_button.get_attribute('id') or '',
+            'name': submit_button.get_attribute('name') or '',
+            'text': submit_button.inner_text().strip() or submit_button.get_attribute('value') or '',
+            'selector': 'button[type="submit"], input[type="submit"]'
         }
 
+    # Strategy 2: Look for buttons with submit-like text
+    if not submit_button:
+        submit_texts = ['submit', 'send', 'continue', 'next', 'proceed', 'request', 'delete', 'remove']
+        for text in submit_texts:
+            button = page.query_selector(f'button:has-text("{text}"), input[value*="{text}"]')
+            if button:
+                submit_button = button
+                button_info = {
+                    'type': 'text_match',
+                    'id': button.get_attribute('id') or '',
+                    'name': button.get_attribute('name') or '',
+                    'text': button.inner_text().strip() or button.get_attribute('value') or '',
+                    'selector': f'button:has-text("{text}"), input[value*="{text}"]'
+                }
+                break
+
+    # Strategy 3: Look for primary action buttons
+    if not submit_button:
+        primary_buttons = page.query_selector_all('button.primary, button[class*="primary"], button[class*="submit"], button[class*="action"]')
+        if primary_buttons:
+            submit_button = primary_buttons[0]  # Take the first primary button
+            button_info = {
+                'type': 'primary_action',
+                'id': submit_button.get_attribute('id') or '',
+                'name': submit_button.get_attribute('name') or '',
+                'text': submit_button.inner_text().strip(),
+                'selector': 'button.primary, button[class*="primary"], button[class*="submit"], button[class*="action"]'
+            }
+
+    form_info['submit_button'] = button_info
     return form_info
+
+def submit_form(page: Page, submit_info: Optional[Dict] = None) -> None:
+    """Submit a form using the provided submit button information.
+    
+    Args:
+        page: Playwright page instance
+        submit_info: Optional dictionary containing submit button information
+    
+    Raises:
+        ValueError: If form cannot be submitted
+    """
+    try:
+        if submit_info and submit_info.get('selector'):
+            # Try to submit using the provided selector
+            submit_button = page.query_selector(submit_info['selector'])
+            if submit_button:
+                submit_button.click()
+                page.wait_for_load_state('networkidle')
+                return
+
+        # Fallback strategies if no submit_info or selector didn't work
+        strategies = [
+            'button[type="submit"], input[type="submit"]',  # Standard submit buttons
+            'button:has-text("Submit"), input[value*="Submit"]',  # Text-based submit
+            'button:has-text("Send"), input[value*="Send"]',
+            'button:has-text("Continue"), input[value*="Continue"]',
+            'button.primary, button[class*="primary"]',  # Primary action buttons
+            'button[class*="submit"], button[class*="action"]'
+        ]
+
+        for selector in strategies:
+            submit_button = page.query_selector(selector)
+            if submit_button:
+                submit_button.click()
+                page.wait_for_load_state('networkidle')
+                return
+
+        raise ValueError("Could not find a suitable submit button")
+    except Exception as e:
+        raise ValueError(f"Error submitting form: {str(e)}")
 
 def fill_form_field(page: Page, field_id: str, value: str) -> None:
     """Fill a form field by its ID.
@@ -100,28 +200,23 @@ def fill_form_field(page: Page, field_id: str, value: str) -> None:
         ValueError: If field not found or cannot be filled
     """
     try:
-        page.fill(f"#{field_id}", value)
+        # Try different selectors to find the field
+        selectors = [
+            f"#{field_id}",  # ID selector
+            f"[name='{field_id}']",  # Name selector
+            f"[id*='{field_id}']",  # Partial ID match
+            f"[name*='{field_id}']"  # Partial name match
+        ]
+
+        for selector in selectors:
+            field = page.query_selector(selector)
+            if field:
+                field.fill(value)
+                return
+
+        raise ValueError(f"Field {field_id} not found")
     except Exception as e:
         raise ValueError(f"Error filling field {field_id}: {str(e)}")
-
-def submit_form(page: Page) -> None:
-    """Submit a form by clicking the submit button.
-    
-    Args:
-        page: Playwright page instance
-    
-    Raises:
-        ValueError: If submit button not found or form cannot be submitted
-    """
-    try:
-        submit_button = page.query_selector('button[type="submit"], input[type="submit"]')
-        if submit_button:
-            submit_button.click()
-            page.wait_for_load_state('networkidle')
-        else:
-            raise ValueError("Submit button not found")
-    except Exception as e:
-        raise ValueError(f"Error submitting form: {str(e)}")
 
 def wait_for_navigation(page: Page, timeout: Optional[int] = None) -> None:
     """Wait for page navigation to complete.
