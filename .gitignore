@@ -10,3 +10,6 @@ token.pickle
 
 # Screenshots
 data_deletion/screenshots/
+
+# Python
+__pycache__/
