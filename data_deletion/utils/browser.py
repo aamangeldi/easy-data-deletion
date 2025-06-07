@@ -1,7 +1,14 @@
 """Browser automation utility functions for data deletion automation."""
-from typing import Dict, Optional, List
+import logging
+from typing import Dict, Optional, List, Tuple
 from pathlib import Path
 from playwright.sync_api import Page, Browser, BrowserContext, ElementHandle
+import json
+from difflib import get_close_matches
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_browser_context(browser: Browser) -> BrowserContext:
     """Create a new browser context with standard settings.
@@ -43,110 +50,64 @@ def take_screenshot(page: Page, name: str) -> Path:
     return screenshot_path
 
 def analyze_form(page: Page) -> Dict:
-    """Analyze a form's structure and elements.
-    
-    Args:
-        page: Playwright page instance
-    
-    Returns:
-        Dictionary containing form structure information
-    """
-    form_info = {
-        'fields': [],
-        'submit_button': None,
-        'form_element': None
-    }
+    """Analyze the form structure and return field information."""
+    try:
+        # Get basic form fields
+        fields = page.evaluate('''() => {
+            return Array.from(document.querySelectorAll('input, select, textarea, [role="combobox"], [role="listbox"]'))
+                .map(field => ({
+                    id: field.id || field.name || '',
+                    name: field.name || '',
+                    type: field.type || 'text',
+                    label: field.getAttribute('aria-label') || '',
+                    required: field.hasAttribute('required'),
+                    value: field.value || ''
+                }));
+        }''')
 
-    # Find all form elements
-    forms = page.query_selector_all('form')
-    if not forms:
-        # If no form element found, look for input fields that might be part of a form
-        inputs = page.query_selector_all('input, select, textarea')
-        if inputs:
-            form_info['form_element'] = {'type': 'implicit', 'fields': len(inputs)}
-    else:
-        # Analyze each form
-        for form in forms:
-            form_id = form.get_attribute('id') or ''
-            form_class = form.get_attribute('class') or ''
-            form_info['form_element'] = {
-                'type': 'explicit',
-                'id': form_id,
-                'class': form_class
-            }
+        # Add our two special fields if they exist
+        request_type = page.query_selector('[aria-label*="submitting this request for"], [aria-label*="request type"]')
+        right_to_exercise = page.query_selector('[aria-label*="right you want to exercise"], [aria-label*="right to exercise"]')
 
-    # Find all input fields
-    inputs = page.query_selector_all('input, select, textarea')
-    for input_elem in inputs:
-        field_info = {
-            'id': input_elem.get_attribute('id') or '',
-            'name': input_elem.get_attribute('name') or '',
-            'type': input_elem.get_attribute('type') or 'text',
-            'label': '',
-            'placeholder': input_elem.get_attribute('placeholder') or '',
-            'required': input_elem.get_attribute('required') is not None,
-            'value': input_elem.get_attribute('value') or ''
-        }
+        if request_type:
+            fields.append({
+                'id': request_type.get_attribute('id') or 'request-type',
+                'name': request_type.get_attribute('name') or '',
+                'type': 'option',
+                'label': request_type.get_attribute('aria-label') or 'Request Type',
+                'required': True,
+                'value': ''
+            })
 
-        # Try to find associated label
-        if field_info['id']:
-            label = page.query_selector(f'label[for="{field_info["id"]}"]')
-            if label:
-                field_info['label'] = label.inner_text().strip()
-        else:
-            # Look for parent label
-            parent_label = input_elem.evaluate('elem => elem.closest("label")')
-            if parent_label:
-                field_info['label'] = parent_label.inner_text().strip()
+        if right_to_exercise:
+            fields.append({
+                'id': right_to_exercise.get_attribute('id') or 'right-to-exercise',
+                'name': right_to_exercise.get_attribute('name') or '',
+                'type': 'option',
+                'label': right_to_exercise.get_attribute('aria-label') or 'Right to Exercise',
+                'required': True,
+                'value': ''
+            })
 
-        form_info['fields'].append(field_info)
-
-    # Find submit button with various strategies
-    submit_button = None
-    button_info = None
-
-    # Strategy 1: Look for explicit submit buttons
-    submit_button = page.query_selector('button[type="submit"], input[type="submit"]')
-    if submit_button:
-        button_info = {
-            'type': 'explicit_submit',
-            'id': submit_button.get_attribute('id') or '',
-            'name': submit_button.get_attribute('name') or '',
-            'text': submit_button.inner_text().strip() or submit_button.get_attribute('value') or '',
-            'selector': 'button[type="submit"], input[type="submit"]'
-        }
-
-    # Strategy 2: Look for buttons with submit-like text
-    if not submit_button:
-        submit_texts = ['submit', 'send', 'continue', 'next', 'proceed', 'request', 'delete', 'remove']
-        for text in submit_texts:
-            button = page.query_selector(f'button:has-text("{text}"), input[value*="{text}"]')
-            if button:
-                submit_button = button
-                button_info = {
-                    'type': 'text_match',
-                    'id': button.get_attribute('id') or '',
-                    'name': button.get_attribute('name') or '',
-                    'text': button.inner_text().strip() or button.get_attribute('value') or '',
-                    'selector': f'button:has-text("{text}"), input[value*="{text}"]'
-                }
-                break
-
-    # Strategy 3: Look for primary action buttons
-    if not submit_button:
-        primary_buttons = page.query_selector_all('button.primary, button[class*="primary"], button[class*="submit"], button[class*="action"]')
-        if primary_buttons:
-            submit_button = primary_buttons[0]  # Take the first primary button
+        # Get submit button
+        submit_button = page.query_selector('button[type="submit"], input[type="submit"], button:has-text("Submit")')
+        button_info = None
+        if submit_button:
             button_info = {
-                'type': 'primary_action',
+                'type': 'explicit',
                 'id': submit_button.get_attribute('id') or '',
-                'name': submit_button.get_attribute('name') or '',
-                'text': submit_button.inner_text().strip(),
-                'selector': 'button.primary, button[class*="primary"], button[class*="submit"], button[class*="action"]'
+                'text': submit_button.inner_text().strip() or submit_button.get_attribute('value') or '',
+                'selector': 'button[type="submit"], input[type="submit"], button:has-text("Submit")'
             }
 
-    form_info['submit_button'] = button_info
-    return form_info
+        return {
+            'fields': fields,
+            'submit_button': button_info
+        }
+
+    except Exception as e:
+        logger.error(f"Error analyzing form: {str(e)}")
+        return {'fields': [], 'submit_button': None}
 
 def submit_form(page: Page, submit_info: Optional[Dict] = None) -> None:
     """Submit a form using the provided submit button information.
@@ -188,18 +149,110 @@ def submit_form(page: Page, submit_info: Optional[Dict] = None) -> None:
     except Exception as e:
         raise ValueError(f"Error submitting form: {str(e)}")
 
-def fill_form_field(page: Page, field_id: str, value: str) -> None:
-    """Fill a form field by its ID.
+def analyze_dropdown_behavior(page: Page, field_id: str, value: str, llm) -> Dict:
+    """Use LLM to analyze how to interact with a dropdown field.
+    
+    Args:
+        page: Playwright page instance
+        field_id: ID of the field to analyze
+        value: Value to select
+        llm: LLM instance for analysis
+    
+    Returns:
+        Dictionary with analysis results and recommended actions
+    """
+    try:
+        # Get field information
+        field = page.query_selector(f"#{field_id}, [name='{field_id}'], [id*='{field_id}'], [name*='{field_id}']")
+        if not field:
+            raise ValueError(f"Field {field_id} not found")
+
+        # Get field properties
+        field_props = {
+            'tag': field.evaluate('el => el.tagName'),
+            'type': field.evaluate('el => el.type'),
+            'role': field.evaluate('el => el.getAttribute("role")'),
+            'class': field.evaluate('el => el.className'),
+            'aria-expanded': field.evaluate('el => el.getAttribute("aria-expanded")'),
+            'aria-autocomplete': field.evaluate('el => el.getAttribute("aria-autocomplete")'),
+        }
+
+        # Click field and wait for dropdown
+        field.click()
+        page.wait_for_timeout(1000)
+
+        # Get dropdown information
+        dropdown = page.query_selector('[role="listbox"], .dropdown-menu, .select2-results, .autocomplete-results, [role="combobox"]')
+        dropdown_info = {}
+        if dropdown:
+            dropdown_info = {
+                'tag': dropdown.evaluate('el => el.tagName'),
+                'role': dropdown.evaluate('el => el.getAttribute("role")'),
+                'class': dropdown.evaluate('el => el.className'),
+                'visible': dropdown.is_visible(),
+                'options': dropdown.evaluate('''el => {
+                    const options = Array.from(el.querySelectorAll('[role="option"], .dropdown-item, .select2-results__option, .autocomplete-item, li, div'));
+                    return options.map(opt => ({
+                        text: opt.textContent,
+                        tag: opt.tagName,
+                        role: opt.getAttribute('role'),
+                        class: opt.className,
+                        visible: opt.offsetParent !== null
+                    }));
+                }''')
+            }
+
+        # Construct prompt for LLM
+        prompt = f"""Analyze this dropdown field behavior and recommend how to interact with it.
+        Field Properties: {json.dumps(field_props, indent=2)}
+        Dropdown Information: {json.dumps(dropdown_info, indent=2)}
+        Target Value: {value}
+
+        Based on the field and dropdown properties, determine:
+        1. What type of dropdown/autocomplete this is
+        2. How to best interact with it (typing, clicking, keyboard)
+        3. What selectors to use to find and select the option
+        4. Any special handling needed
+
+        Return a JSON object with:
+        - dropdown_type: Type of dropdown (e.g., "standard", "autocomplete", "combobox")
+        - interaction_method: How to interact ("type", "click", "keyboard", or combination)
+        - selectors: List of selectors to try in order for finding the dropdown option (not the input field)
+        - special_handling: Any special steps needed
+        - explanation: Brief explanation of the analysis
+        - wait_time: How long to wait for dropdown to appear after typing (in milliseconds)
+        """
+
+        # Get LLM analysis
+        response = llm.invoke(prompt)
+        try:
+            analysis = json.loads(response.content)
+            logger.info(f"Dropdown analysis for {field_id}: {json.dumps(analysis, indent=2)}")
+            return analysis
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse LLM response: {response.content}")
+            return {}
+
+    except Exception as e:
+        logger.error(f"Error analyzing dropdown: {str(e)}")
+        return {}
+
+def fill_autocomplete_field(page: Page, field_id: str, value: str, llm=None, wait_time: int = 1000) -> None:
+    """Fill an autocomplete/dropdown field by typing and selecting from dropdown.
     
     Args:
         page: Playwright page instance
         field_id: ID of the field to fill
-        value: Value to fill in
+        value: Value to fill in and select
+        llm: Optional LLM instance for dropdown analysis
+        wait_time: Time to wait for dropdown in milliseconds
     
     Raises:
-        ValueError: If field not found or cannot be filled
+        ValueError: If field not found or value cannot be selected
     """
     try:
+        logger.info(f"Attempting to fill autocomplete field {field_id} with value {value}")
+        
         # Try different selectors to find the field
         selectors = [
             f"#{field_id}",  # ID selector
@@ -208,14 +261,245 @@ def fill_form_field(page: Page, field_id: str, value: str) -> None:
             f"[name*='{field_id}']"  # Partial name match
         ]
 
+        field = None
         for selector in selectors:
             field = page.query_selector(selector)
             if field:
-                field.fill(value)
-                return
+                logger.info(f"Found field using selector: {selector}")
+                break
 
-        raise ValueError(f"Field {field_id} not found")
+        if not field:
+            raise ValueError(f"Field {field_id} not found")
+
+        # If LLM is provided, analyze the dropdown behavior
+        if llm:
+            analysis = analyze_dropdown_behavior(page, field_id, value, llm)
+            if analysis:
+                logger.info(f"Using LLM analysis for dropdown interaction: {analysis['explanation']}")
+                
+                # Click the field to focus it
+                field.click()
+                field.fill("")  # Clear existing value
+                
+                # Follow the recommended interaction method
+                if 'type' in analysis['interaction_method']:
+                    # Type the value
+                    field.fill(value)
+                    # Wait for dropdown to appear
+                    wait_time = analysis.get('wait_time', 1000)
+                    logger.info(f"Waiting {wait_time}ms for dropdown to appear")
+                    page.wait_for_timeout(wait_time)
+                    
+                    # Try to find and click the dropdown option
+                    for selector in analysis['selectors']:
+                        try:
+                            logger.info(f"Trying to find dropdown option with selector: {selector}")
+                            # Wait for the option to be visible
+                            option = page.wait_for_selector(selector, timeout=2000)
+                            if option:
+                                logger.info("Found dropdown option, attempting to click")
+                                # Scroll the option into view if needed
+                                option.scroll_into_view_if_needed()
+                                # Click the option
+                                option.click()
+                                # Wait a bit to ensure the selection is registered
+                                page.wait_for_timeout(500)
+                                logger.info("Successfully clicked dropdown option")
+                                return
+                        except Exception as e:
+                            logger.warning(f"Failed to select option with selector {selector}: {str(e)}")
+                            continue
+                    
+                    # If no option was found with selectors, try keyboard navigation
+                    if 'keyboard' in analysis['interaction_method']:
+                        try:
+                            logger.info("Attempting keyboard navigation")
+                            field.press("Enter")
+                            page.wait_for_timeout(500)
+                            if field.input_value() == value:
+                                logger.info("Successfully selected option using keyboard")
+                                return
+                        except Exception as e:
+                            logger.warning(f"Keyboard navigation failed: {str(e)}")
+
+        # Fallback to standard behavior if LLM analysis fails or isn't provided
+        logger.info("Falling back to standard dropdown interaction")
+        field.click()
+        field.fill("")
+        field.fill(value)
+        page.wait_for_timeout(wait_time)
+        
+        # Try different strategies to find and click the dropdown option
+        dropdown_selectors = [
+            f'[role="option"]:has-text("{value}")',
+            f'[role="listbox"] [role="option"]:has-text("{value}")',
+            f'.dropdown-item:has-text("{value}")',
+            f'.select2-results__option:has-text("{value}")',
+            f'.autocomplete-item:has-text("{value}")',
+            f'li:has-text("{value}")',
+            f'div:has-text("{value}")',
+            f'text="{value}"'
+        ]
+
+        for selector in dropdown_selectors:
+            try:
+                logger.info(f"Trying fallback selector: {selector}")
+                option = page.wait_for_selector(selector, timeout=2000)
+                if option:
+                    option.scroll_into_view_if_needed()
+                    option.click()
+                    page.wait_for_timeout(500)
+                    logger.info(f"Successfully selected option using fallback selector: {selector}")
+                    return
+            except Exception as e:
+                logger.warning(f"Fallback selector {selector} failed: {str(e)}")
+                continue
+
+        raise ValueError(f"Could not find or select dropdown option for value: {value}")
+
     except Exception as e:
+        logger.error(f"Error filling autocomplete field {field_id}: {str(e)}")
+        raise ValueError(f"Error filling autocomplete field {field_id}: {str(e)}")
+
+def analyze_form_field(page: Page, field_id: str, llm) -> Dict:
+    """Use LLM to analyze a form field and determine how to interact with it.
+    
+    Args:
+        page: Playwright page instance
+        field_id: ID of the field to analyze
+        llm: LLM instance for analysis
+    
+    Returns:
+        Dictionary with analysis results and recommended actions
+    """
+    try:
+        # Get field information
+        field = page.query_selector(f"#{field_id}, [name='{field_id}'], [id*='{field_id}'], [name*='{field_id}']")
+        if not field:
+            raise ValueError(f"Field {field_id} not found")
+
+        # Get field properties and structure
+        field_info = {
+            'tag': field.evaluate('el => el.tagName'),
+            'type': field.evaluate('el => el.type'),
+            'role': field.evaluate('el => el.getAttribute("role")'),
+            'class': field.evaluate('el => el.className'),
+            'aria-expanded': field.evaluate('el => el.getAttribute("aria-expanded")'),
+            'aria-autocomplete': field.evaluate('el => el.getAttribute("aria-autocomplete")'),
+            'aria-haspopup': field.evaluate('el => el.getAttribute("aria-haspopup")'),
+            'aria-controls': field.evaluate('el => el.getAttribute("aria-controls")'),
+            'aria-labelledby': field.evaluate('el => el.getAttribute("aria-labelledby")'),
+            'aria-label': field.evaluate('el => el.getAttribute("aria-label")'),
+            'innerHTML': field.evaluate('el => el.innerHTML'),
+            'parentHTML': field.evaluate('el => el.parentElement.innerHTML'),
+        }
+
+        # Click the field to see what happens
+        field.click()
+        page.wait_for_timeout(1000)
+
+        # Get any visible options
+        options = page.evaluate('''() => {
+            const elements = Array.from(document.querySelectorAll('div, li, span, button'));
+            return elements
+                .filter(el => el.offsetParent !== null)  // Only visible elements
+                .map(el => ({
+                    text: el.textContent.trim(),
+                    tag: el.tagName,
+                    role: el.getAttribute('role'),
+                    class: el.className
+                }))
+                .filter(opt => opt.text.length > 0);
+        }''')
+
+        # Ask LLM to analyze the field
+        prompt = f"""Analyze this form field and determine how to interact with it to select an option.
+        Field Information: {json.dumps(field_info, indent=2)}
+        Available Options: {json.dumps(options, indent=2)}
+
+        Based on the field properties and available options, determine:
+        1. What type of field this is (dropdown, radio, custom select, etc.)
+        2. How to best interact with it
+        3. What selectors to use to find and select options
+
+        Return a JSON object with:
+        - field_type: Type of field (e.g., "custom_select", "radio_group", "custom_dropdown")
+        - selectors: List of selectors to try in order
+        - explanation: Brief explanation of the analysis
+        """
+
+        # Get LLM analysis
+        response = llm.invoke(prompt)
+        try:
+            analysis = json.loads(response.content)
+            logger.info(f"Field analysis for {field_id}: {json.dumps(analysis, indent=2)}")
+            return analysis
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse LLM response: {response.content}")
+            return {}
+
+    except Exception as e:
+        logger.error(f"Error analyzing field: {str(e)}")
+        return {}
+
+def select_option(page: Page, field_id: str, target_value: str) -> None:
+    """Select an option in a form field by clicking and finding the closest match."""
+    try:
+        logger.info(f"Attempting to select '{target_value}' in field {field_id}")
+        
+        # Find and click the field
+        field = page.query_selector(f"#{field_id}, [name='{field_id}'], [aria-label*='{field_id}']")
+        if not field:
+            raise ValueError(f"Field {field_id} not found")
+        
+        field.click()
+        page.wait_for_timeout(1000)  # Wait for options to appear
+        
+        # Get all visible text that could be options
+        options = page.evaluate('''() => {
+            return Array.from(document.querySelectorAll('div, li, span, button'))
+                .filter(el => el.offsetParent !== null)
+                .map(el => el.textContent.trim())
+                .filter(text => text.length > 0);
+        }''')
+        
+        # Find the closest match
+        matches = get_close_matches(target_value.lower(), [text.lower() for text in options], n=1, cutoff=0.6)
+        if not matches:
+            raise ValueError(f"Could not find option matching '{target_value}' in {options}")
+        
+        best_match = matches[0]
+        logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
+        
+        # Click the matching option
+        page.click(f"text='{best_match}'")
+        logger.info("Successfully clicked option")
+        
+    except Exception as e:
+        logger.error(f"Error selecting option in field {field_id}: {str(e)}")
+        raise ValueError(f"Error selecting option in field {field_id}: {str(e)}")
+
+def fill_form_field(page: Page, field_id: str, value: str, field_type: str = 'text') -> None:
+    """Fill a form field with the given value."""
+    try:
+        logger.info(f"Filling field {field_id} with value {value} (type: {field_type})")
+        
+        if field_type == 'autocomplete':
+            fill_autocomplete_field(page, field_id, value)
+        elif field_type == 'option':
+            select_option(page, field_id, value)
+        else:
+            # Find the field
+            field = page.query_selector(f"#{field_id}, [name='{field_id}'], [aria-label*='{field_id}']")
+            if not field:
+                raise ValueError(f"Field {field_id} not found")
+
+            # Fill the field
+            field.fill(value)
+            logger.info(f"Successfully filled field {field_id}")
+
+    except Exception as e:
+        logger.error(f"Error filling field {field_id}: {str(e)}")
         raise ValueError(f"Error filling field {field_id}: {str(e)}")
 
 def wait_for_navigation(page: Page, timeout: Optional[int] = None) -> None:

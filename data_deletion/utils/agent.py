@@ -36,11 +36,27 @@ class FormManager:
         # Create a sanitized version of user data that only includes keys
         sanitized_user_data = {key: "[REDACTED]" for key in self.user_data.keys()}
 
+        # Add field type information to help the LLM understand how to fill each field
+        form_info = {
+            'fields': [
+                {
+                    **field,
+                    # Explicitly mark state field as autocomplete
+                    'field_type': 'autocomplete' if (
+                        field.get('id', '').lower() in ['state', 'state-input', 'statedsarelement'] or
+                        field.get('label', '').lower() == 'state'
+                    ) else 'text'
+                }
+                for field in self.form_analysis['fields']
+            ],
+            'submit_button': self.form_analysis.get('submit_button')
+        }
+
         prompt = f"""Given a form structure and available user data fields, map the form fields to the appropriate user data keys.
-        Return ONLY a JSON object mapping field IDs to user data keys.
+        Return ONLY a JSON object mapping field IDs to user data keys and field types.
 
         Form Structure:
-        {json.dumps(self.form_analysis, indent=2)}
+        {json.dumps(form_info, indent=2)}
 
         Available User Data Fields:
         {json.dumps(list(sanitized_user_data.keys()), indent=2)}
@@ -48,21 +64,33 @@ class FormManager:
         Rules:
         1. Only map fields that clearly correspond to user data fields
         2. Use field IDs as keys and user data field names as values
-        3. Return a JSON object like {{"fieldId1": "first_name", "fieldId2": "email"}}
+        3. Return a JSON object like {{"fieldId1": {{"key": "first_name", "type": "text"}}, "fieldId2": {{"key": "state", "type": "autocomplete"}}}}
         4. If no clear mapping can be made, return an empty object {{}}
         5. Do not include any actual user data values
+        6. Pay special attention to field types:
+           - The state field should ALWAYS be marked as 'autocomplete' type
+           - Other fields should be marked as 'text' type
+        7. For the state field, ensure it's mapped to the 'state' key in user data
         """
 
         response = self.llm.invoke(prompt)
         try:
-            # Get the mapping of field IDs to user data keys
-            field_to_key_mapping = json.loads(response.content)
+            # Get the mapping of field IDs to user data keys and types
+            field_mapping = json.loads(response.content)
+            
+            # Ensure state field is marked as autocomplete
+            for field_id, mapping in field_mapping.items():
+                if mapping['key'] == 'state':
+                    mapping['type'] = 'autocomplete'
             
             # Convert the mapping to use actual user data values
             return {
-                field_id: self.user_data[key]
-                for field_id, key in field_to_key_mapping.items()
-                if key in self.user_data
+                field_id: {
+                    'value': self.user_data[mapping['key']],
+                    'type': mapping.get('type', 'text')
+                }
+                for field_id, mapping in field_mapping.items()
+                if mapping['key'] in self.user_data
             }
         except json.JSONDecodeError:
             return {}
@@ -84,9 +112,14 @@ class FormManager:
 
             # Fill each field and track what was filled
             filled_fields = {}
-            for field_id, value in field_mapping.items():
-                fill_form_field(self.page, field_id, value)
-                filled_fields[field_id] = value
+            for field_id, field_info in field_mapping.items():
+                fill_form_field(
+                    self.page, 
+                    field_id, 
+                    field_info['value'],
+                    field_type=field_info.get('type', 'text')
+                )
+                filled_fields[field_id] = field_info
 
             return json.dumps({
                 "status": "success",

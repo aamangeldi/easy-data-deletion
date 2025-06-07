@@ -3,6 +3,8 @@ import argparse
 from playwright.sync_api import sync_playwright
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+from typing import Dict, List
 
 from utils import (
     get_gmail_service,
@@ -16,16 +18,93 @@ from utils import (
 # Load environment variables
 load_dotenv()
 
-def run_delete_flow(first_name: str, last_name: str, email: str):
+# State code to full name mapping
+STATE_MAPPING: Dict[str, str] = {
+    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
+    'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
+    'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+    'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+    'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+    'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+    'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
+    'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+    'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
+    'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+    'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+}
+
+def validate_date_of_birth(date_str: str) -> str:
+    """Validate and format date of birth.
+    
+    Args:
+        date_str: Date string in MM/DD/YYYY format
+    
+    Returns:
+        Formatted date string
+    
+    Raises:
+        ValueError: If date is invalid
+    """
+    try:
+        # Parse the date
+        date_obj = datetime.strptime(date_str, '%m/%d/%Y')
+        # Ensure date is not in the future
+        if date_obj > datetime.now():
+            raise ValueError("Date of birth cannot be in the future")
+        # Return formatted date
+        return date_obj.strftime('%m/%d/%Y')
+    except ValueError as e:
+        if "time data" in str(e):
+            raise ValueError("Date must be in MM/DD/YYYY format")
+        raise
+
+def validate_state_code(state: str) -> str:
+    """Validate state code and return full state name.
+    
+    Args:
+        state: Two-letter state code
+    
+    Returns:
+        Full state name
+    
+    Raises:
+        ValueError: If state code is invalid
+    """
+    state = state.upper()
+    if state not in STATE_MAPPING:
+        valid_states = ', '.join(sorted(STATE_MAPPING.keys()))
+        raise ValueError(f"Invalid state code. Must be one of: {valid_states}")
+    return STATE_MAPPING[state]
+
+def run_delete_flow(
+    first_name: str,
+    last_name: str,
+    email: str,
+    date_of_birth: str,
+    address: str,
+    city: str,
+    state: str,
+    zip_code: str
+):
     """Run the Acxiom data deletion flow."""
     if not os.getenv("OPENAI_API_KEY"):
         raise ValueError("Please set OPENAI_API_KEY environment variable")
 
-    # Store user data
+    # Store user data with form-specific values
     user_data = {
         'first_name': first_name,
         'last_name': last_name,
-        'email': email
+        'email': email,
+        'date_of_birth': date_of_birth,
+        'address': address,
+        'city': city,
+        'state': state,  # This will be the full state name
+        'zip_code': zip_code,
+        # Form-specific values
+        'request_type': 'as Myself',  # "I am submitting this request for: myself"
+        'right_to_exercise': 'Delete'  # "Select the Right You Want to Exercise: delete"
     }
 
     # Initialize Gmail service for email monitoring
@@ -52,14 +131,14 @@ def run_delete_flow(first_name: str, last_name: str, email: str):
                 page=page,
                 user_data=user_data,
                 system_prompt=get_default_form_prompt(),
-                gmail_service=gmail_service  # Pass Gmail service for email confirmation
+                gmail_service=gmail_service
             )
 
             # Run the agent
             print("\nStarting deletion request process...")
             result = agent.invoke({
-                "broker_name": "Acxiom",  # Pass broker name for email confirmation
-                "wait_time": 300  # 5 minutes wait time for confirmation
+                "broker_name": "Acxiom",
+                "wait_time": 300
             })
 
             # Take a screenshot after form is filled
@@ -80,9 +159,27 @@ def main():
     parser.add_argument('--first-name', required=True, help='Your first name')
     parser.add_argument('--last-name', required=True, help='Your last name')
     parser.add_argument('--email', required=True, help='Your email address')
+    parser.add_argument('--date-of-birth', required=True, 
+                       help='Your date of birth (MM/DD/YYYY)',
+                       type=validate_date_of_birth)
+    parser.add_argument('--address', required=True, help='Your street address')
+    parser.add_argument('--city', required=True, help='Your city')
+    parser.add_argument('--state', required=True, 
+                       help='Your state (2-letter code, e.g., CA for California)',
+                       type=validate_state_code)
+    parser.add_argument('--zip-code', required=True, help='Your ZIP code')
 
     args = parser.parse_args()
-    run_delete_flow(args.first_name, args.last_name, args.email)
+    run_delete_flow(
+        args.first_name,
+        args.last_name,
+        args.email,
+        args.date_of_birth,
+        args.address,
+        args.city,
+        args.state,  # This will be the full state name from validate_state_code
+        args.zip_code
+    )
 
 if __name__ == '__main__':
     main() 
