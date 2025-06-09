@@ -52,14 +52,6 @@ class FormManager:
             'submit_button': self.form_analysis.get('submit_button')
         }
 
-        # Add specific guidance for Acxiom form fields
-        acxiom_field_guidance = """
-        Special field mappings for Acxiom form:
-        - subjectTypesDSARElement (type: option) should be mapped to 'request_type' (value: "as Myself")
-        - requestTypesDSARElement (type: option) should be mapped to 'right_to_exercise' (value: "Delete")
-        - These are listbox fields that require clicking to select options
-        """
-
         prompt = f"""Given a form structure and available user data fields, map the form fields to the appropriate user data keys.
         Return ONLY a JSON object mapping field IDs to user data keys and field types.
 
@@ -68,8 +60,6 @@ class FormManager:
 
         Available User Data Fields:
         {json.dumps(list(sanitized_user_data.keys()), indent=2)}
-
-        {acxiom_field_guidance}
 
         Rules:
         1. Only map fields that clearly correspond to user data fields
@@ -83,26 +73,13 @@ class FormManager:
            - Fields with role="combobox" should be marked as 'autocomplete' type
            - Other fields should be marked as 'text' type
         7. For the state field, ensure it's mapped to the 'state' key in user data
-        8. IMPORTANT: Map subjectTypesDSARElement to 'request_type' and requestTypesDSARElement to 'right_to_exercise'
         """
 
         response = self.llm.invoke(prompt)
         try:
             # Get the mapping of field IDs to user data keys and types
             field_mapping = json.loads(response.content)
-            
-            # Ensure state field is marked as autocomplete
-            for field_id, mapping in field_mapping.items():
-                if mapping['key'] == 'state':
-                    mapping['type'] = 'autocomplete'
-            
-            # Ensure the two special Acxiom fields are properly mapped
-            for field_id, mapping in field_mapping.items():
-                if field_id == 'subjectTypesDSARElement':
-                    mapping['type'] = 'option'
-                elif field_id == 'requestTypesDSARElement':
-                    mapping['type'] = 'option'
-            
+
             # Convert the mapping to use actual user data values
             return {
                 field_id: {

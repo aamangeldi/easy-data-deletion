@@ -103,8 +103,8 @@ def run_delete_flow(
         'state': state,  # This will be the full state name
         'zip_code': zip_code,
         # Form-specific values
-        'request_type': 'as Myself',  # "I am submitting this request for: myself"
-        'right_to_exercise': 'Delete'  # "Select the Right You Want to Exercise: delete"
+        'subject_type': 'as Myself',  # "I am submitting this request for: myself"
+        'request_type': 'Delete'  # "Select the Right You Want to Exercise: delete"
     }
 
     # Initialize Gmail service for email monitoring
@@ -181,5 +181,10 @@ def main():
         args.zip_code
     )
 
+    ## (Future) Opt out flow
+    # 1. navigate to https://www.acxiom.com/optout/
+    # 2. fill out the form with required information, hit submit
+    # 3. check email, there should be a link to confirm the request, click it -> redirected to confirmation page
+
 if __name__ == '__main__':
-    main() 
+    main()

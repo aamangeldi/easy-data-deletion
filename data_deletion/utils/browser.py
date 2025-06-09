@@ -78,38 +78,6 @@ def analyze_form(page: Page) -> Dict:
                 });
         }''')
 
-        # Add our two special fields if they exist (using more specific selectors)
-        request_type = page.query_selector('#subjectTypesDSARElement, #requestTypesDSARElement, [aria-label*="submitting this request for"], [aria-label*="request type"]')
-        right_to_exercise = page.query_selector('[aria-label*="right you want to exercise"], [aria-label*="right to exercise"]')
-
-        if request_type:
-            # Check if this field is already in the fields list
-            existing_field = next((f for f in fields if f['id'] == request_type.get_attribute('id')), None)
-            if not existing_field:
-                fields.append({
-                    'id': request_type.get_attribute('id') or 'request-type',
-                    'name': request_type.get_attribute('name') or '',
-                    'type': 'option',
-                    'label': request_type.get_attribute('aria-label') or 'Request Type',
-                    'required': True,
-                    'value': '',
-                    'role': request_type.get_attribute('role') or ''
-                })
-
-        if right_to_exercise:
-            # Check if this field is already in the fields list
-            existing_field = next((f for f in fields if f['id'] == right_to_exercise.get_attribute('id')), None)
-            if not existing_field:
-                fields.append({
-                    'id': right_to_exercise.get_attribute('id') or 'right-to-exercise',
-                    'name': right_to_exercise.get_attribute('name') or '',
-                    'type': 'option',
-                    'label': right_to_exercise.get_attribute('aria-label') or 'Right to Exercise',
-                    'required': True,
-                    'value': '',
-                    'role': right_to_exercise.get_attribute('role') or ''
-                })
-
         # Get submit button
         submit_button = page.query_selector('button[type="submit"], input[type="submit"], button:has-text("Submit")')
         button_info = None
