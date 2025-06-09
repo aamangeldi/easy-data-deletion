@@ -9,7 +9,7 @@ load_dotenv()
 
 # /recaptcha/api2/reload?k=6LfiqCUUAAAAAGzo0BG2sKBIF-oZVi1_rXgUm5xn
 ACXIOM_WEBSITE_KEY = "6LfiqCUUAAAAAGzo0BG2sKBIF-oZVi1_rXgUm5xn"
-ACXIOM_WEBSITE_KEY = "6LfiqCUUAAAAAGzo0BG2sKBIF-oZVi1_rXgUm5xn"
+# reference: https://github.com/anti-captcha/anticaptcha-python/tree/master/anticaptchaofficial
 
 
 def get_api_key():
