@@ -1,5 +1,6 @@
-# Virtual environment
+# Virtual environment and python
 .venv/
+__pycache__
 
 # Google OAuth credentials
 credentials.json
@@ -12,4 +13,9 @@ token.pickle
 data_deletion/screenshots/
 
 # Python
-__pycache__/
+__pycache__/i
+
+
+
+# secrets
+SECRETS

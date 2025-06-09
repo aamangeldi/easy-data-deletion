@@ -6,14 +6,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import Dict, List
 
-from utils import (
-    get_gmail_service,
-    create_browser_context,
-    take_screenshot,
-    create_form_agent,
-    get_default_form_prompt,
-    ACXIOM_DELETE_FORM_URL
-)
+from utils import (get_gmail_service, create_browser_context, take_screenshot,
+                   create_form_agent, get_default_form_prompt,
+                   ACXIOM_DELETE_FORM_URL)
+
+from data_deletion.utils.captcha import get_solver, solve_captcha, ACXIOM_WEBSITE_KEY
 
 # Load environment variables
 load_dotenv()
@@ -21,20 +18,59 @@ load_dotenv()
 # State code to full name mapping
 # TODO: make agent try both state code and full state name
 STATE_MAPPING: Dict[str, str] = {
-    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
-    'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
-    'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
-    'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
-    'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
-    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
-    'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
-    'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
-    'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
-    'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
-    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
-    'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
-    'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+    'AL': 'Alabama',
+    'AK': 'Alaska',
+    'AZ': 'Arizona',
+    'AR': 'Arkansas',
+    'CA': 'California',
+    'CO': 'Colorado',
+    'CT': 'Connecticut',
+    'DE': 'Delaware',
+    'FL': 'Florida',
+    'GA': 'Georgia',
+    'HI': 'Hawaii',
+    'ID': 'Idaho',
+    'IL': 'Illinois',
+    'IN': 'Indiana',
+    'IA': 'Iowa',
+    'KS': 'Kansas',
+    'KY': 'Kentucky',
+    'LA': 'Louisiana',
+    'ME': 'Maine',
+    'MD': 'Maryland',
+    'MA': 'Massachusetts',
+    'MI': 'Michigan',
+    'MN': 'Minnesota',
+    'MS': 'Mississippi',
+    'MO': 'Missouri',
+    'MT': 'Montana',
+    'NE': 'Nebraska',
+    'NV': 'Nevada',
+    'NH': 'New Hampshire',
+    'NJ': 'New Jersey',
+    'NM': 'New Mexico',
+    'NY': 'New York',
+    'NC': 'North Carolina',
+    'ND': 'North Dakota',
+    'OH': 'Ohio',
+    'OK': 'Oklahoma',
+    'OR': 'Oregon',
+    'PA': 'Pennsylvania',
+    'RI': 'Rhode Island',
+    'SC': 'South Carolina',
+    'SD': 'South Dakota',
+    'TN': 'Tennessee',
+    'TX': 'Texas',
+    'UT': 'Utah',
+    'VT': 'Vermont',
+    'VA': 'Virginia',
+    'WA': 'Washington',
+    'WV': 'West Virginia',
+    'WI': 'Wisconsin',
+    'WY': 'Wyoming',
+    'DC': 'District of Columbia'
 }
+
 
 def validate_date_of_birth(date_str: str) -> str:
     """Validate and format date of birth.
@@ -61,6 +97,7 @@ def validate_date_of_birth(date_str: str) -> str:
             raise ValueError("Date must be in MM/DD/YYYY format")
         raise
 
+
 def validate_state_code(state: str) -> str:
     """Validate state code and return full state name.
 
@@ -79,16 +116,10 @@ def validate_state_code(state: str) -> str:
         raise ValueError(f"Invalid state code. Must be one of: {valid_states}")
     return STATE_MAPPING[state]
 
-def run_delete_flow(
-    first_name: str,
-    last_name: str,
-    email: str,
-    date_of_birth: str,
-    address: str,
-    city: str,
-    state: str,
-    zip_code: str
-):
+
+def run_delete_flow(first_name: str, last_name: str, email: str,
+                    date_of_birth: str, address: str, city: str, state: str,
+                    zip_code: str):
     """Run the Acxiom data deletion flow."""
     if not os.getenv("OPENAI_API_KEY"):
         raise ValueError("Please set OPENAI_API_KEY environment variable")
@@ -104,8 +135,10 @@ def run_delete_flow(
         'state': state,  # This will be the full state name
         'zip_code': zip_code,
         # Acxiom-specific values
-        'subject_type': 'as Myself',  # "I am submitting this request: as Myself"
-        'request_type': 'Delete'  # "Select the Right You Want to Exercise: Delete"
+        'subject_type':
+        'as Myself',  # "I am submitting this request: as Myself"
+        'request_type':
+        'Delete'  # "Select the Right You Want to Exercise: Delete"
     }
 
     # Initialize Gmail service for email monitoring
@@ -128,19 +161,14 @@ def run_delete_flow(
             take_screenshot(page, "acxiom_form_initial")
 
             # Create agent with email capabilities
-            agent = create_form_agent(
-                page=page,
-                user_data=user_data,
-                system_prompt=get_default_form_prompt(),
-                gmail_service=gmail_service
-            )
-
+            agent = create_form_agent(page=page,
+                                      user_data=user_data,
+                                      system_prompt=get_default_form_prompt(),
+                                      gmail_service=gmail_service)
+            print(f"agent created")
             # Run the agent
             print("\nStarting deletion request process...")
-            result = agent.invoke({
-                "broker_name": "Acxiom",
-                "wait_time": 300
-            })
+            result = agent.invoke({"broker_name": "Acxiom", "wait_time": 300})
 
             # Take a screenshot after form is filled
             take_screenshot(page, "acxiom_form_filled")
@@ -149,25 +177,40 @@ def run_delete_flow(
             print("\n=== Deletion Request Status ===")
             print(result.get('output', 'No status information available'))
 
+            print(f"solving captcha")
+            # solve captcha
+            solver = get_solver(website_url=ACXIOM_DELETE_FORM_URL,
+                                website_key=ACXIOM_WEBSITE_KEY)
+            g_response = solve_captcha(solver)
+            print(f"g_response: {g_response}")
+
+            # submit form
+            page.click('button[type="submit"]')
+
         except Exception as e:
             print(f"\nAn error occurred: {str(e)}")
             take_screenshot(page, "acxiom_form_error")
         finally:
             browser.close()
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Run Acxiom data deletion flow.')
+    parser = argparse.ArgumentParser(
+        description='Run Acxiom data deletion flow.')
     parser.add_argument('--first-name', required=True, help='Your first name')
     parser.add_argument('--last-name', required=True, help='Your last name')
     parser.add_argument('--email', required=True, help='Your email address')
-    parser.add_argument('--date-of-birth', required=True, 
-                       help='Your date of birth (MM/DD/YYYY)',
-                       type=validate_date_of_birth)
+    parser.add_argument('--date-of-birth',
+                        required=True,
+                        help='Your date of birth (MM/DD/YYYY)',
+                        type=validate_date_of_birth)
     parser.add_argument('--address', required=True, help='Your street address')
     parser.add_argument('--city', required=True, help='Your city')
-    parser.add_argument('--state', required=True, 
-                       help='Your state (2-letter code, e.g., CA for California)',
-                       type=validate_state_code)
+    parser.add_argument(
+        '--state',
+        required=True,
+        help='Your state (2-letter code, e.g., CA for California)',
+        type=validate_state_code)
     parser.add_argument('--zip-code', required=True, help='Your ZIP code')
 
     args = parser.parse_args()
@@ -178,14 +221,15 @@ def main():
         args.date_of_birth,
         args.address,
         args.city,
-        args.state,  # This will be the full state name from validate_state_code
-        args.zip_code
-    )
+        args.
+        state,  # This will be the full state name from validate_state_code
+        args.zip_code)
 
     ## (Future) Opt out flow
     # 1. navigate to https://www.acxiom.com/optout/
     # 2. fill out the form with required information, hit submit
     # 3. check email, there should be a link to confirm the request, click it -> redirected to confirmation page
+
 
 if __name__ == '__main__':
     main()
