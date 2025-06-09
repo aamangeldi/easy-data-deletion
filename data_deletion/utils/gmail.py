@@ -20,13 +20,13 @@ SCOPES = [
 
 def get_gmail_service(creds: Optional[Credentials] = None) -> build:
     """Get Gmail API service instance.
-    
+
     Args:
         creds: Optional credentials object. If not provided, will try to load from token.pickle.
-    
+
     Returns:
         Gmail API service instance.
-    
+
     Raises:
         FileNotFoundError: If credentials.json is not found.
     """
@@ -50,11 +50,11 @@ def get_gmail_service(creds: Optional[Credentials] = None) -> build:
 
 def ensure_label_exists(service: build, label_name: str) -> str:
     """Ensure the label exists and return its ID.
-    
+
     Args:
         service: Gmail API service instance
         label_name: Name of the label to create/verify
-    
+
     Returns:
         Label ID
     """
@@ -75,13 +75,13 @@ def ensure_label_exists(service: build, label_name: str) -> str:
 
 def create_deletion_email(first_name: str, last_name: str, user_email: str, broker_name: str) -> MIMEMultipart:
     """Create a data deletion request email.
-    
+
     Args:
         first_name: User's first name
         last_name: User's last name
         user_email: User's email address
         broker_name: Name of the data broker
-    
+
     Returns:
         MIME multipart message object
     """
@@ -109,12 +109,12 @@ Best regards,
 
 def send_email(service: build, msg: MIMEMultipart, label_id: Optional[str] = None) -> Dict:
     """Send an email using Gmail API.
-    
+
     Args:
         service: Gmail API service instance
         msg: MIME multipart message object
         label_id: Optional label ID to apply to the sent message
-    
+
     Returns:
         Response from Gmail API
     """
@@ -141,22 +141,22 @@ def check_confirmation_email(
     check_interval: int = 10
 ) -> bool:
     """Check for confirmation email from specified domains.
-    
+
     Args:
         service: Gmail API service instance
         user_email: User's email address
         from_domains: List of domains to check for emails from
         wait_time: Maximum time to wait in seconds
         check_interval: Time between checks in seconds
-    
+
     Returns:
         True if confirmation email found, False otherwise
     """
     print(f"\nWaiting for confirmation email (up to {wait_time} seconds)...")
-    
+
     from_query = ' OR '.join(f'from:{domain}' for domain in from_domains)
     query = f'({from_query}) to:{user_email} newer_than:1d'
-    
+
     start_time = time.time()
     while time.time() - start_time < wait_time:
         results = service.users().messages().list(userId='me', q=query).execute()
@@ -166,7 +166,7 @@ def check_confirmation_email(
             msg = service.users().messages().get(userId='me', id=message['id']).execute()
             headers = msg['payload']['headers']
             subject = next(h['value'] for h in headers if h['name'].lower() == 'subject')
-            
+
             if 'confirmation' in subject.lower():
                 print(f"\n✓ Found confirmation email: {subject}")
                 return True

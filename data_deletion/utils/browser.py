@@ -3,7 +3,6 @@ import logging
 from typing import Dict, Optional, List, Tuple
 from pathlib import Path
 from playwright.sync_api import Page, Browser, BrowserContext, ElementHandle
-import json
 from difflib import get_close_matches
 
 # Set up logging
@@ -212,24 +211,24 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
     """Select an option in a form field by clicking and finding the closest match."""
     try:
         logger.info(f"Attempting to select '{target_value}' in field {field_id}")
-        
+
         # Find the field
         field = page.query_selector(f"#{field_id}, [name='{field_id}'], [aria-label*='{field_id}']")
         if not field:
             raise ValueError(f"Field {field_id} not found")
-        
+
         # Get field properties to understand its type
         field_role = field.get_attribute('role')
         logger.info(f"Field {field_id} has role: {field_role}")
-        
+
         # Click the field to open/activate it
         field.click()
         page.wait_for_timeout(1000)  # Wait for options to appear
-        
+
         # For listbox fields, look for options within the listbox container
         if field_role == 'listbox':
             logger.info("Field is a listbox, looking for options within the listbox")
-            
+
             # Try to find options within this specific listbox
             options = page.evaluate(f'''() => {{
                 const listbox = document.querySelector('#{field_id}');
@@ -246,23 +245,23 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
                     }}))
                     .filter(opt => opt.text.length > 0);
             }}''')
-            
+
             logger.info(f"Found {len(options)} options in listbox: {[opt['text'] for opt in options]}")
-            
+
             # Find the closest match
             option_texts = [opt['text'] for opt in options]
             matches = get_close_matches(target_value.lower(), [text.lower() for text in option_texts], n=1, cutoff=0.6)
-            
+
             if not matches:
                 raise ValueError(f"Could not find option matching '{target_value}' in {option_texts}")
-            
+
             best_match = matches[0]
             logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
-            
+
             # Click the matching option within the listbox
             option_selector = f"#{field_id} [role='option']:has-text('{best_match}'), #{field_id} div:has-text('{best_match}'), #{field_id} li:has-text('{best_match}'), #{field_id} span:has-text('{best_match}')"
             option = page.query_selector(option_selector)
-            
+
             if option:
                 option.scroll_into_view_if_needed()
                 option.click()
@@ -271,11 +270,11 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
                 # Fallback: try clicking by text within the listbox
                 page.click(f"#{field_id} >> text='{best_match}'")
                 logger.info(f"Successfully clicked option '{best_match}' using fallback method")
-        
+
         else:
             # For other field types, use the original logic
             logger.info("Field is not a listbox, using generic option selection")
-            
+
             # Get all visible text that could be options
             options = page.evaluate('''() => {
                 return Array.from(document.querySelectorAll('div, li, span, button'))
@@ -283,19 +282,19 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
                     .map(el => el.textContent.trim())
                     .filter(text => text.length > 0);
             }''')
-            
+
             # Find the closest match
             matches = get_close_matches(target_value.lower(), [text.lower() for text in options], n=1, cutoff=0.6)
             if not matches:
                 raise ValueError(f"Could not find option matching '{target_value}' in {options}")
-            
+
             best_match = matches[0]
             logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
-            
+
             # Click the matching option
             page.click(f"text='{best_match}'")
             logger.info("Successfully clicked option")
-        
+
     except Exception as e:
         logger.error(f"Error selecting option in field {field_id}: {str(e)}")
         raise ValueError(f"Error selecting option in field {field_id}: {str(e)}")
@@ -304,7 +303,7 @@ def fill_form_field(page: Page, field_id: str, value: str, field_type: str = 'te
     """Fill a form field with the given value."""
     try:
         logger.info(f"Filling field {field_id} with value {value} (type: {field_type})")
-        
+
         if field_type == 'autocomplete':
             fill_autocomplete_field(page, field_id, value)
         elif field_type == 'option':

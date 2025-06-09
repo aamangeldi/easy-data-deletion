@@ -19,6 +19,7 @@ from utils import (
 load_dotenv()
 
 # State code to full name mapping
+# TODO: make agent try both state code and full state name
 STATE_MAPPING: Dict[str, str] = {
     'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
     'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
@@ -37,13 +38,13 @@ STATE_MAPPING: Dict[str, str] = {
 
 def validate_date_of_birth(date_str: str) -> str:
     """Validate and format date of birth.
-    
+
     Args:
         date_str: Date string in MM/DD/YYYY format
-    
+
     Returns:
         Formatted date string
-    
+
     Raises:
         ValueError: If date is invalid
     """
@@ -62,13 +63,13 @@ def validate_date_of_birth(date_str: str) -> str:
 
 def validate_state_code(state: str) -> str:
     """Validate state code and return full state name.
-    
+
     Args:
         state: Two-letter state code
-    
+
     Returns:
         Full state name
-    
+
     Raises:
         ValueError: If state code is invalid
     """
@@ -117,7 +118,7 @@ def run_delete_flow(
 
         try:
             print("\n=== Starting Acxiom Data Deletion Flow ===")
-            
+
             # Navigate to the form
             print(f"\nNavigating to Acxiom deletion form...")
             page.goto(ACXIOM_DELETE_FORM_URL)
