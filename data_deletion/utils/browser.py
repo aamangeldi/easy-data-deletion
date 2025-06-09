@@ -55,39 +55,60 @@ def analyze_form(page: Page) -> Dict:
         # Get basic form fields
         fields = page.evaluate('''() => {
             return Array.from(document.querySelectorAll('input, select, textarea, [role="combobox"], [role="listbox"]'))
-                .map(field => ({
-                    id: field.id || field.name || '',
-                    name: field.name || '',
-                    type: field.type || 'text',
-                    label: field.getAttribute('aria-label') || '',
-                    required: field.hasAttribute('required'),
-                    value: field.value || ''
-                }));
+                .map(field => {
+                    // Determine the correct type based on element properties
+                    let fieldType = field.type || 'text';
+                    if (field.getAttribute('role') === 'listbox') {
+                        fieldType = 'option';
+                    } else if (field.getAttribute('role') === 'combobox') {
+                        fieldType = 'autocomplete';
+                    } else if (field.tagName === 'SELECT') {
+                        fieldType = 'option';
+                    }
+                    
+                    return {
+                        id: field.id || field.name || '',
+                        name: field.name || '',
+                        type: fieldType,
+                        label: field.getAttribute('aria-label') || '',
+                        required: field.hasAttribute('required'),
+                        value: field.value || '',
+                        role: field.getAttribute('role') || ''
+                    };
+                });
         }''')
 
-        # Add our two special fields if they exist
-        request_type = page.query_selector('[aria-label*="submitting this request for"], [aria-label*="request type"]')
+        # Add our two special fields if they exist (using more specific selectors)
+        request_type = page.query_selector('#subjectTypesDSARElement, #requestTypesDSARElement, [aria-label*="submitting this request for"], [aria-label*="request type"]')
         right_to_exercise = page.query_selector('[aria-label*="right you want to exercise"], [aria-label*="right to exercise"]')
 
         if request_type:
-            fields.append({
-                'id': request_type.get_attribute('id') or 'request-type',
-                'name': request_type.get_attribute('name') or '',
-                'type': 'option',
-                'label': request_type.get_attribute('aria-label') or 'Request Type',
-                'required': True,
-                'value': ''
-            })
+            # Check if this field is already in the fields list
+            existing_field = next((f for f in fields if f['id'] == request_type.get_attribute('id')), None)
+            if not existing_field:
+                fields.append({
+                    'id': request_type.get_attribute('id') or 'request-type',
+                    'name': request_type.get_attribute('name') or '',
+                    'type': 'option',
+                    'label': request_type.get_attribute('aria-label') or 'Request Type',
+                    'required': True,
+                    'value': '',
+                    'role': request_type.get_attribute('role') or ''
+                })
 
         if right_to_exercise:
-            fields.append({
-                'id': right_to_exercise.get_attribute('id') or 'right-to-exercise',
-                'name': right_to_exercise.get_attribute('name') or '',
-                'type': 'option',
-                'label': right_to_exercise.get_attribute('aria-label') or 'Right to Exercise',
-                'required': True,
-                'value': ''
-            })
+            # Check if this field is already in the fields list
+            existing_field = next((f for f in fields if f['id'] == right_to_exercise.get_attribute('id')), None)
+            if not existing_field:
+                fields.append({
+                    'id': right_to_exercise.get_attribute('id') or 'right-to-exercise',
+                    'name': right_to_exercise.get_attribute('name') or '',
+                    'type': 'option',
+                    'label': right_to_exercise.get_attribute('aria-label') or 'Right to Exercise',
+                    'required': True,
+                    'value': '',
+                    'role': right_to_exercise.get_attribute('role') or ''
+                })
 
         # Get submit button
         submit_button = page.query_selector('button[type="submit"], input[type="submit"], button:has-text("Submit")')
@@ -447,33 +468,88 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
     try:
         logger.info(f"Attempting to select '{target_value}' in field {field_id}")
         
-        # Find and click the field
+        # Find the field
         field = page.query_selector(f"#{field_id}, [name='{field_id}'], [aria-label*='{field_id}']")
         if not field:
             raise ValueError(f"Field {field_id} not found")
         
+        # Get field properties to understand its type
+        field_role = field.get_attribute('role')
+        logger.info(f"Field {field_id} has role: {field_role}")
+        
+        # Click the field to open/activate it
         field.click()
         page.wait_for_timeout(1000)  # Wait for options to appear
         
-        # Get all visible text that could be options
-        options = page.evaluate('''() => {
-            return Array.from(document.querySelectorAll('div, li, span, button'))
-                .filter(el => el.offsetParent !== null)
-                .map(el => el.textContent.trim())
-                .filter(text => text.length > 0);
-        }''')
+        # For listbox fields, look for options within the listbox container
+        if field_role == 'listbox':
+            logger.info("Field is a listbox, looking for options within the listbox")
+            
+            # Try to find options within this specific listbox
+            options = page.evaluate(f'''() => {{
+                const listbox = document.querySelector('#{field_id}');
+                if (!listbox) return [];
+                
+                const optionElements = Array.from(listbox.querySelectorAll('[role="option"], div, li, span'));
+                return optionElements
+                    .filter(el => el.offsetParent !== null)  // Only visible elements
+                    .map(el => ({{
+                        text: el.textContent.trim(),
+                        tag: el.tagName,
+                        role: el.getAttribute('role'),
+                        class: el.className
+                    }}))
+                    .filter(opt => opt.text.length > 0);
+            }}''')
+            
+            logger.info(f"Found {len(options)} options in listbox: {[opt['text'] for opt in options]}")
+            
+            # Find the closest match
+            option_texts = [opt['text'] for opt in options]
+            matches = get_close_matches(target_value.lower(), [text.lower() for text in option_texts], n=1, cutoff=0.6)
+            
+            if not matches:
+                raise ValueError(f"Could not find option matching '{target_value}' in {option_texts}")
+            
+            best_match = matches[0]
+            logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
+            
+            # Click the matching option within the listbox
+            option_selector = f"#{field_id} [role='option']:has-text('{best_match}'), #{field_id} div:has-text('{best_match}'), #{field_id} li:has-text('{best_match}'), #{field_id} span:has-text('{best_match}')"
+            option = page.query_selector(option_selector)
+            
+            if option:
+                option.scroll_into_view_if_needed()
+                option.click()
+                logger.info(f"Successfully clicked option '{best_match}' within listbox")
+            else:
+                # Fallback: try clicking by text within the listbox
+                page.click(f"#{field_id} >> text='{best_match}'")
+                logger.info(f"Successfully clicked option '{best_match}' using fallback method")
         
-        # Find the closest match
-        matches = get_close_matches(target_value.lower(), [text.lower() for text in options], n=1, cutoff=0.6)
-        if not matches:
-            raise ValueError(f"Could not find option matching '{target_value}' in {options}")
-        
-        best_match = matches[0]
-        logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
-        
-        # Click the matching option
-        page.click(f"text='{best_match}'")
-        logger.info("Successfully clicked option")
+        else:
+            # For other field types, use the original logic
+            logger.info("Field is not a listbox, using generic option selection")
+            
+            # Get all visible text that could be options
+            options = page.evaluate('''() => {
+                return Array.from(document.querySelectorAll('div, li, span, button'))
+                    .filter(el => el.offsetParent !== null)
+                    .map(el => el.textContent.trim())
+                    .filter(text => text.length > 0);
+            }''')
+            
+            # Find the closest match
+            matches = get_close_matches(target_value.lower(), [text.lower() for text in options], n=1, cutoff=0.6)
+            if not matches:
+                raise ValueError(f"Could not find option matching '{target_value}' in {options}")
+            
+            best_match = matches[0]
+            logger.info(f"Found closest match: '{best_match}' for target '{target_value}'")
+            
+            # Click the matching option
+            page.click(f"text='{best_match}'")
+            logger.info("Successfully clicked option")
         
     except Exception as e:
         logger.error(f"Error selecting option in field {field_id}: {str(e)}")
