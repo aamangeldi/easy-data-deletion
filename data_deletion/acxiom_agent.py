@@ -102,9 +102,9 @@ def run_delete_flow(
         'city': city,
         'state': state,  # This will be the full state name
         'zip_code': zip_code,
-        # Form-specific values
-        'subject_type': 'as Myself',  # "I am submitting this request for: myself"
-        'request_type': 'Delete'  # "Select the Right You Want to Exercise: delete"
+        # Acxiom-specific values
+        'subject_type': 'as Myself',  # "I am submitting this request: as Myself"
+        'request_type': 'Delete'  # "Select the Right You Want to Exercise: Delete"
     }
 
     # Initialize Gmail service for email monitoring
