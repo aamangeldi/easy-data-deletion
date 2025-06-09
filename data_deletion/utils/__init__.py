@@ -39,7 +39,7 @@ __all__ = [
     'create_deletion_email',
     'send_email',
     'check_confirmation_email',
-    
+
     # Browser utilities
     'create_browser_context',
     'ensure_screenshots_dir',
@@ -48,12 +48,12 @@ __all__ = [
     'fill_form_field',
     'submit_form',
     'wait_for_navigation',
-    
+
     # Agent utilities
     'create_browser_tools',
     'create_form_agent',
     'get_default_form_prompt',
-    
+
     # Broker utilities
     'get_broker_url',
     'read_broker_data',

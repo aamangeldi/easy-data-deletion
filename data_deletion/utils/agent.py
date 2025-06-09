@@ -9,10 +9,10 @@ from playwright.sync_api import Page
 
 class FormManager:
     """Manages form state and operations for the agent."""
-    
+
     def __init__(self, page: Page, user_data: Dict[str, str], llm: ChatOpenAI):
         """Initialize the form manager.
-        
+
         Args:
             page: Playwright page instance
             user_data: Dictionary containing user information
@@ -100,7 +100,7 @@ class FormManager:
         """Fill in the user's data using the provided information."""
         try:
             from .browser import fill_form_field
-            
+
             # Use LLM to map fields
             field_mapping = self.get_field_mapping()
 
@@ -130,10 +130,10 @@ class FormManager:
         """Submit the form and return the result."""
         try:
             from .browser import submit_form
-            
+
             submit_info = self.form_analysis.get('submit_button')
             submit_form(self.page, submit_info)
-            
+
             return json.dumps({
                 "status": "success",
                 "message": "Form submitted successfully",
@@ -149,13 +149,13 @@ def create_browser_tools(
     gmail_service: Dict = None
 ) -> List[StructuredTool]:
     """Create browser interaction tools for the agent.
-    
+
     Args:
         page: Playwright page instance
         user_data: Dictionary containing user information
         llm: LLM instance to use for field mapping
         gmail_service: Optional Gmail service for email functionality
-    
+
     Returns:
         List of StructuredTool instances for the agent
     """
@@ -180,7 +180,7 @@ def create_browser_tools(
                 user_data['email']
             )
             send_email(gmail_service, message)
-            
+
             return json.dumps({
                 "status": "success",
                 "message": f"Deletion request email sent to {broker_name}",
@@ -258,7 +258,7 @@ def create_form_agent(
     gmail_service: Dict = None
 ) -> AgentExecutor:
     """Create a LangChain agent for form automation.
-    
+
     Args:
         page: Playwright page instance
         user_data: Dictionary containing user information
@@ -266,7 +266,7 @@ def create_form_agent(
         model: OpenAI model to use
         temperature: Temperature for model generation
         gmail_service: Optional Gmail service for email functionality
-    
+
     Returns:
         AgentExecutor instance
     """
@@ -283,7 +283,7 @@ def create_form_agent(
 
 def get_default_form_prompt() -> str:
     """Get the default system prompt for form automation.
-    
+
     Returns:
         Default system prompt string
     """

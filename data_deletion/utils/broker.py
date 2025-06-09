@@ -12,7 +12,7 @@ def get_broker_url(broker_name: str) -> Optional[str]:
     
     Args:
         broker_name: Name of the data broker
-    
+
     Returns:
         URL for the broker's form, or None if not found
     """
@@ -28,13 +28,13 @@ def get_broker_url(broker_name: str) -> Optional[str]:
 
 def read_broker_data() -> List[Dict[str, str]]:
     """Read data broker information from CSV file.
-    
+
     Returns:
         List of dictionaries containing broker information
     """
     script_dir = Path(__file__).parent.parent
     csv_path = script_dir / 'broker_lists' / 'current.csv'
-    
+
     brokers = []
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -45,10 +45,10 @@ def read_broker_data() -> List[Dict[str, str]]:
 
 def get_broker_email_domains(broker_name: str) -> List[str]:
     """Get the email domains associated with a broker.
-    
+
     Args:
         broker_name: Name of the data broker
-    
+
     Returns:
         List of email domains to monitor for confirmations
     """
