@@ -1,0 +1,12 @@
+Dear <name>:
+
+Thank you for your interest in LexisNexis' information suppression program. Your request to have information suppressed from LexisNexis publicly facing public records products has been received and is in process. Please note that it may take up to 30 days to suppress your information from LexisNexis products and services.
+
+Please note that your information will remain in the following products and services: restricted public records products which are available to commercial and government entities that meet LexisNexis credentialing requirements and are used to detect and prevent fraud, enforce transactions, perform due diligence, and other critical business and government functions; products regulated by the Fair Credit Reporting Act; third party data available through real time gateways; news; and legal documents.
+
+This suppression request does not expire, and LexisNexis will attempt to suppress all of the information available based on the information you provided in your opt-out request. Due to the variations in personal information contained in public records, or insufficient or inaccurate information provided in a suppression request, it is possible that personal information about you may be reintroduced to LexisNexis products in the future. If you become aware that your personal information is available through LexisNexis publicly facing products in the future, please notify the LexisNexis Privacy Hotline and the issue will be investigated so that we may take appropriate action.
+
+Should you have any questions regarding this confirmation notice, please contact the LexisNexis Privacy Hotline at 1-800-831-2578.
+
+Regards,
+Privacy Manager
