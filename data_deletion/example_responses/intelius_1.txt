@@ -1,0 +1,29 @@
+Reference Email: <email>
+
+Dear <name>,
+
+We have received your request to have your public data removed from the Intelius website. We care about your privacy and your ability to personally control the display of your public data. The Suppression Center allows you to limit the ability for other users to view your report while preventing others from abusing this function of the website.
+
+To exercise this right, access our suppression tool [here](https://email.mg.mailer.intelius.com/c/eJwczMFuhCAQANCvgVvNgAMjBw69-B_DALsk6hqWavr3Tff-8nKkLFyCLtEQBgfeBtLPiIv3Pi_CtfqQCG0qwWTPTshlU6tucSZZwsKEMCeDHpIBdAnEoFSy4BRC7a9j8HlO8tr1Fp9jnG81fyu7Krve9z21Y5St_bz_gbLr2dvF8vsl5Ril6x55b33inY9H2XJTCI-d2_bprmj_AgAA__9H3Dp8) and click on “Suppress Your Public Data.” At this point, click on “Manage My Suppression Rules.” You will be asked to submit your email address to begin the process. 
+
+Once you receive an email, you must click "Verify Email" to proceed.
+This will take you to the “Identity Page”, where you will be prompted to provide identifying information to verify your report and validate that you are the person identified in the report. 
+The information you provide will not be sold, shared with third parties, or used for marketing purposes.
+Upon verifying an email address or phone number, you will receive a unique code via text or email. Enter this code on the “Identity Page” to proceed.  
+Once you have entered all identifying information and verified at least one email or phone number, click “Save” to move to the final step. 
+You can edit and update this information as needed or desired.
+The final step is to navigate to the "Suppressing Settings" tab. This page will display all reports corresponding to your validated information. On this page, you can toggle to "Suppress" or "Display" your reports.    
+
+Please allow up to 48 hours for these changes to reflect on our website. Please keep in mind that we do not remove sex offender location data and that these names could still appear as a possible relative or associate in another individual’s background report.
+
+Please Note: The Suppression Tool only applies to the publicly available information that is contained in our reports and displayed to consumers on our website. If you want to exercise your CCPA or other state law privacy rights with respect to the user data Intelius collects from you, you can do so here.
+
+Your request to remove your information from the Intelius website, will be applied to the Public Data displayed on all people search sites owned by PeopleConnect including TruthFinder.com, Intelius.com, Instantcheckmate.com and USSearch.com.
+
+—
+If you have questions about our service or want quick solutions, visit our Help Center. There you can find immediate resolutions and answers to our customers' most frequently asked questions. You can also reach us via email anytime at support@mailer.intelius.com.
+
+Respectfully,
+ 
+Jasmin
+Intelius Support
