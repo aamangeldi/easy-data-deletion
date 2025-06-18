@@ -1,0 +1,21 @@
+
+Dear <name>,
+
+Your request has been successfully submitted. Your Request ID is <alphanumeric-id>, please keep this for your records.
+
+Request ID: <alphanumeric-id>
+
+Date Submitted: 06/17/2025 10:55 PM UTC
+
+I am a (an): Customer
+Select request type(s): Personal Information Deletion
+First Name: XXXX
+Last Name: XXXXXXXXX
+Email: XXXXXXXXXXXXXXXXXXXXXXXX
+Country: XXXXXXX
+First Line of Address: XXXXXXXXXXXXXXXXXXXXX
+Zip Code: XXXXX
+Request Details: XXXXXXXXXXXXXXXXXXXXX
+Phone Number: XXXXXXXXXXXXX
+
+If you have any questions, please contact a member of the privacy team.
