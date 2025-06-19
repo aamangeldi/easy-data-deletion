@@ -215,18 +215,7 @@ def fill_autocomplete_field(page: Page,
                             field_id: str,
                             value: str,
                             wait_time: int = 1000) -> None:
-    """Fill an autocomplete/dropdown field by typing and selecting from dropdown.
-
-    Args:
-        page: Playwright page instance
-        field_id: ID of the field to fill
-        value: Value to fill in and select
-        wait_time: Time to wait for dropdown in milliseconds
-
-    Raises:
-        ValueError: If field not found or value cannot be selected
-    """
-    """Fill an autocomplete/dropdown field by typing and selecting from dropdown.
+    """Fill an autocomplete/dropdown field by typing and selecting from dropdown or selecting from a native <select>.
 
     Args:
         page: Playwright page instance
@@ -247,21 +236,28 @@ def fill_autocomplete_field(page: Page,
         if not field:
             raise ValueError(f"Field {field_id} not found")
 
-        # Fill in value and wait for dropdown
-        field.click()
-        field.fill(value)
-        page.wait_for_timeout(wait_time)
-
-        # Find and click the dropdown option
-        option = _find_dropdown_option(page, value)
-        if not option:
-            raise ValueError(
-                f"Could not find dropdown option for value: {value}")
-
-        option.scroll_into_view_if_needed()
-        option.click()
-        page.wait_for_timeout(500)
-        logger.info(f"Successfully selected option: {value}")
+        tag_name = field.evaluate("el => el.tagName.toLowerCase()")
+        if tag_name == "select":
+            # Native select dropdown
+            logger.info(
+                f"Detected native <select> element for {field_id}, using select_option."
+            )
+            field.select_option(value)
+            page.wait_for_timeout(500)
+            logger.info(f"Successfully selected option in <select>: {value}")
+        else:
+            # Fill in value and wait for dropdown
+            field.click()
+            field.fill(value)
+            page.wait_for_timeout(wait_time)
+            option = _find_dropdown_option(page, value)
+            if not option:
+                raise ValueError(
+                    f"Could not find dropdown option for value: {value}")
+            option.scroll_into_view_if_needed()
+            option.click()
+            page.wait_for_timeout(500)
+            logger.info(f"Successfully selected option: {value}")
 
     except Exception as e:
         logger.error(f"Error filling autocomplete field {field_id}: {str(e)}")
