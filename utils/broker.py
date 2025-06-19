@@ -2,6 +2,7 @@
 from typing import Dict, List, Optional
 from pathlib import Path
 import csv
+import json
 
 # Broker-specific constants
 ACXIOM_DELETE_FORM_URL = "https://privacyportal.onetrust.com/webform/342ca6ac-4177-4827-b61e-19070296cbd3/7229a09c-578f-4ac6-a987-e0428a7b877e"
@@ -58,3 +59,56 @@ def get_broker_email_domains(broker_name: str) -> List[str]:
         # Add more brokers as needed
     }
     return broker_domains.get(broker_name, [])
+
+
+def load_broker_config(broker_name: str) -> Dict:
+    """Load broker configuration from JSON file.
+    
+    Args:
+        broker_name: Name of the broker
+        
+    Returns:
+        Broker configuration dictionary
+        
+    Raises:
+        FileNotFoundError: If broker config doesn't exist
+    """
+    # Get the root directory (where broker_configs is located)
+    root_dir = Path(__file__).parent.parent
+    config_path = root_dir / 'broker_configs' / f'{broker_name.lower()}.json'
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"No configuration found for broker '{broker_name}'. "
+                              f"Expected config file: {config_path}")
+    
+    with open(config_path, 'r') as f:
+        return json.load(f)
+
+
+def prepare_user_data(config: Dict, **kwargs) -> Dict:
+    """Prepare user data with proper state formatting for the broker.
+    
+    Args:
+        config: Broker configuration
+        **kwargs: User data fields
+        
+    Returns:
+        Dictionary with properly formatted user data
+    """
+    from .state_utils import StateHandler
+    
+    user_data = {}
+    
+    # Copy basic fields
+    for key, value in kwargs.items():
+        if value is not None:
+            user_data[key] = value
+    
+    # Handle state formatting if state is provided
+    if 'state' in user_data and user_data['state']:
+        state_format = config.get('form_config', {}).get('state_format', 'full')
+        state_handler = StateHandler(state_format)
+        user_data['state'] = state_handler.format_state(user_data['state'])
+        print(f"Formatted state as: {user_data['state']} (format: {state_format})")
+    
+    return user_data

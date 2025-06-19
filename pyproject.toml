@@ -1,26 +1,32 @@
-[tool.poetry]
+[project]
 name = "easy-data-deletion"
 version = "0.0.1"
-description = ""
-authors = ["Amir Amangeldi <amir.amangeldi@gmail.com>", "Roy Rinberg <royrinberg@gmail.com>"]
+description = "CLI-based data deletion automation suite for data broker removal requests"
+authors = [
+    {name = "Amir Amangeldi", email = "amir.amangeldi@gmail.com"},
+    {name = "Roy Rinberg", email = "royrinberg@gmail.com"}
+]
 readme = "README.md"
-packages = [
-	{include = "data_deletion"},
+requires-python = ">=3.10"
+dependencies = [
+    "google-auth-oauthlib>=1.2.2",
+    "google-auth-httplib2>=0.2.0",
+    "google-api-python-client>=2.171.0",
+    "playwright>=1.52.0",
+    "langchain>=0.3.25",
+    "langchain-openai>=0.3.21",
+    "python-dotenv>=1.1.0",
+    "yapf>=0.43.0",
+    "anticaptchaofficial>=1.0.66",
+    "requests>=2.32.4"
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-google-auth-oauthlib = "^1.2.2"
-google-auth-httplib2 = "^0.2.0"
-google-api-python-client = "^2.171.0"
-playwright = "^1.52.0"
-langchain = "^0.3.25"
-langchain-openai = "^0.3.21"
-python-dotenv = "^1.1.0"
-yapf = "^0.43.0"
-anticaptchaofficial = "^1.0.66"
-requests = "^2.32.4"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["utils*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.csv"]

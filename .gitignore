@@ -9,7 +9,13 @@ token.pickle
 .env
 
 # Screenshots
-data_deletion/screenshots/
+screenshots/
 
 # Python
 __pycache__/
+
+# Build directories (from pip install .)
+build/
+easy_data_deletion.egg-info/
+dist/
+*.egg-info/
