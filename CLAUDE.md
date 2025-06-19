@@ -9,11 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Create virtual environment and install dependencies
 python -m venv .venv
 source .venv/bin/activate
-poetry install
+pip install .
 
 # Set up environment variables
 cp .env.template .env
-# Edit .env to add OPENAI_API_KEY
+# Edit .env to add OPENAI_API_KEY and ANTICAPTCHA_API_KEY
 
 # Configure git hooks for automatic yapf formatting
 git config core.hooksPath .githooks
