@@ -1,8 +1,9 @@
 """Browser automation utility functions for data deletion automation."""
 import logging
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional
 from pathlib import Path
-from playwright.sync_api import Page, Browser, BrowserContext, ElementHandle
+from datetime import datetime
+from playwright.sync_api import Page, Browser, BrowserContext
 from difflib import get_close_matches
 
 # Set up logging
@@ -34,7 +35,7 @@ def ensure_screenshots_dir() -> Path:
     return screenshots_dir
 
 def take_screenshot(page: Page, name: str) -> Path:
-    """Take a screenshot and save it to the screenshots directory.
+    """Take a screenshot and save it to the screenshots directory with timestamp.
 
     Args:
         page: Playwright page instance
@@ -44,7 +45,8 @@ def take_screenshot(page: Page, name: str) -> Path:
         Path to the saved screenshot
     """
     screenshots_dir = ensure_screenshots_dir()
-    screenshot_path = screenshots_dir / f"{name}.png"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    screenshot_path = screenshots_dir / f"{name}_{timestamp}.png"
     page.screenshot(path=str(screenshot_path))
     return screenshot_path
 
@@ -299,8 +301,47 @@ def select_option(page: Page, field_id: str, target_value: str) -> None:
         logger.error(f"Error selecting option in field {field_id}: {str(e)}")
         raise ValueError(f"Error selecting option in field {field_id}: {str(e)}")
 
-def fill_form_field(page: Page, field_id: str, value: str, field_type: str = 'text') -> None:
-    """Fill a form field with the given value."""
+def fill_form_deterministically(page: Page, field_mapping: Dict, user_data: Dict) -> Dict:
+    """Fill form using AI-discovered field mapping.
+    
+    Args:
+        page: Playwright page instance
+        field_mapping: Mapping from constrained AI
+        user_data: User data to fill
+        
+    Returns:
+        Dictionary with fill results
+    """
+    results = {"filled": 0, "failed": 0, "errors": []}
+    
+    for field_id, mapping in field_mapping.items():
+        try:
+            value = mapping['value']
+            field_type = mapping.get('type', 'text')
+            
+            success = fill_form_field(page, field_id, value, field_type)
+            if success:
+                results["filled"] += 1
+                print(f"   ✓ Filled {field_id}: {mapping.get('user_key', 'unknown')}")
+            else:
+                results["failed"] += 1
+                results["errors"].append(f"Failed to fill {field_id}")
+                
+        except Exception as e:
+            results["failed"] += 1
+            error_msg = f"Error filling {field_id}: {str(e)}"
+            results["errors"].append(error_msg)
+            print(f"   ❌ {error_msg}")
+    
+    return results
+
+
+def fill_form_field(page: Page, field_id: str, value: str, field_type: str = 'text') -> bool:
+    """Fill a form field with the given value.
+    
+    Returns:
+        True if successful, False otherwise
+    """
     try:
         logger.info(f"Filling field {field_id} with value {value} (type: {field_type})")
 
@@ -317,10 +358,12 @@ def fill_form_field(page: Page, field_id: str, value: str, field_type: str = 'te
             # Fill the field
             field.fill(value)
             logger.info(f"Successfully filled field {field_id}")
+        
+        return True
 
     except Exception as e:
         logger.error(f"Error filling field {field_id}: {str(e)}")
-        raise ValueError(f"Error filling field {field_id}: {str(e)}")
+        return False
 
 def wait_for_navigation(page: Page, timeout: Optional[int] = None) -> None:
     """Wait for page navigation to complete.

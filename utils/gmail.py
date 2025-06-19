@@ -138,7 +138,8 @@ def check_confirmation_email(
     user_email: str,
     from_domains: List[str],
     wait_time: int = 300,
-    check_interval: int = 10
+    check_interval: int = 10,
+    after_time: float = None
 ) -> bool:
     """Check for confirmation email from specified domains.
 
@@ -148,27 +149,65 @@ def check_confirmation_email(
         from_domains: List of domains to check for emails from
         wait_time: Maximum time to wait in seconds
         check_interval: Time between checks in seconds
+        after_time: Unix timestamp - only check emails received after this time
 
     Returns:
         True if confirmation email found, False otherwise
     """
     print(f"\nWaiting for confirmation email (up to {wait_time} seconds)...")
-
+    print(f"Searching domains: {from_domains}")
+    
     from_query = ' OR '.join(f'from:{domain}' for domain in from_domains)
     query = f'({from_query}) to:{user_email} newer_than:1d'
+    print(f"Gmail search query: {query}")
 
     start_time = time.time()
+    check_count = 0
     while time.time() - start_time < wait_time:
+        check_count += 1
         results = service.users().messages().list(userId='me', q=query).execute()
         messages = results.get('messages', [])
+        
+        if check_count == 1:  # First check - show what emails we found
+            print(f"Found {len(messages)} emails from specified domains")
+            if messages:
+                print("Recent emails from these domains:")
+                for i, message in enumerate(messages[:3]):  # Show first 3
+                    msg = service.users().messages().get(userId='me', id=message['id']).execute()
+                    headers = msg['payload']['headers']
+                    subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No subject')
+                    from_header = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown sender')
+                    print(f"  {i+1}. From: {from_header}")
+                    print(f"     Subject: {subject}")
 
         for message in messages:
             msg = service.users().messages().get(userId='me', id=message['id']).execute()
             headers = msg['payload']['headers']
-            subject = next(h['value'] for h in headers if h['name'].lower() == 'subject')
+            subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No subject')
+            
+            # Check if email was received after submission time
+            if after_time:
+                email_timestamp = int(msg['internalDate']) / 1000  # Convert from milliseconds to seconds
+                if email_timestamp <= after_time:
+                    continue  # Skip emails received before/at submission time
 
-            if 'confirmation' in subject.lower():
+            # Check for various confirmation/response keywords
+            confirmation_keywords = [
+                'confirmation',
+                'privacy request', 
+                'request needs attention',
+                'request id',
+                'privacy portal',
+                'request received',
+                'submission received'
+            ]
+            
+            if any(keyword in subject.lower() for keyword in confirmation_keywords):
+                from_header = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown sender')
                 print(f"\n✓ Found confirmation email: {subject}")
+                print(f"  From: {from_header}")
+                if after_time:
+                    print(f"  Received: {(email_timestamp - after_time):.1f} seconds after submission")
                 return True
 
         time.sleep(check_interval)

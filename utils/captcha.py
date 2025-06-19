@@ -1,6 +1,6 @@
 import os
 from anticaptchaofficial.recaptchav2proxyless import recaptchaV2Proxyless
-from data_deletion.utils.broker import ACXIOM_DELETE_FORM_URL
+from .broker import ACXIOM_DELETE_FORM_URL
 # recaptchaV2Proxyless
 
 from dotenv import load_dotenv
