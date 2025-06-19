@@ -35,7 +35,18 @@ def handle_web_form_submission(config: Dict, user_data: Dict, page) -> Dict:
     # Solve CAPTCHA if required
     if submission_config.get('requires_captcha'):
         print("Solving CAPTCHA...")
-        captcha_response = solve_captcha()
+
+        # Get CAPTCHA config from broker configuration
+        captcha_config = config.get('captcha_config', {})
+        website_key = captcha_config.get('website_key')
+        website_url = config.get('url')
+
+        if not website_key:
+            raise ValueError(
+                f"CAPTCHA required but no website_key found in config for {config.get('name')}"
+            )
+
+        captcha_response = solve_captcha(website_url, website_key)
         if not captcha_response:
             raise ValueError("CAPTCHA solving failed")
         user_data['captcha_response'] = captcha_response
