@@ -6,7 +6,7 @@
     ```
     python -m venv .venv
     source .venv/bin/activate
-    pip install -r requirements
+    pip install .
     ```
 
 2. Create a `.env`:
@@ -14,7 +14,7 @@
     cp .env.template .env
     ```
 
-3. Get an OpenAI API key and fill it in `.env`.
+3. Get an OpenAI API key and fill it in `.env`. Also add ANTICAPTCHA_API_KEY if using CAPTCHA solving features.
 
 4. Download Google OAuth credentials into the main directory of this repo under `credentials.json`.
     - Go to https://console.cloud.google.com/
@@ -27,7 +27,7 @@
 ### Acxiom agent
 1. Run the script:
 ```
-python data_deletion/acxiom_agent.p --first-name <First-Name> --last-name <Last-Name> --email <Your-Email> --date-of-birth MM/DD/YYYY --address "Your Address" --city <City> --state <XX> --zip-code <XXXXX>
+python data_deletion/acxiom_agent.py --first-name <First-Name> --last-name <Last-Name> --email <Your-Email> --date-of-birth MM/DD/YYYY --address "Your Address" --city <City> --state <XX> --zip-code <XXXXX>
 ```
 
 ### Request via email script
