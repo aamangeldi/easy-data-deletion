@@ -120,6 +120,8 @@ Brokers are defined in `broker_configs/*.json`. The system automatically detects
 }
 ```
 
+See [broker_lists/most_recent.csv](broker_lists/most_recent.csv) for a non-exhaustive list of brokers.
+
 ## Architecture
 
 - **Single Entry Point**: `broker_agent.py` handles all brokers
