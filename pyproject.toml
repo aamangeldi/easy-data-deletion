@@ -18,7 +18,43 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "yapf>=0.43.0",
     "anticaptchaofficial>=1.0.66",
-    "requests>=2.32.4"
+    "requests>=2.32.4",
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.24.0",
+    "coverage>=7.6.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0", 
+    "pytest-asyncio>=0.24.0",
+    "coverage>=7.6.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--strict-markers --disable-warnings"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests"
+]
+
+[tool.coverage.run]
+source = ["utils", "broker_agent"]
+omit = ["tests/*", "build/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError"
 ]
 
 [build-system]
@@ -26,7 +62,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["utils*"]
+include = ["utils*", "services*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.csv"]
