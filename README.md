@@ -1,13 +1,13 @@
 # Easy Data Deletion
 
-Automated data broker deletion requests using a hybrid approach: deterministic automation for known brokers and AI-powered fallback for new brokers.
+Automate your data deletion requests from data brokers!
 
 ## Features
 
 - **Unified System**: Single script processes all brokers automatically
-- **Hybrid Approach**: Deterministic configs for speed, AI fallback for flexibility  
+- **Hybrid Approach**: Deterministic automation for known brokers and AI-powered fallback for new brokers
 - **Gmail Integration**: Monitors confirmation emails automatically
-- **Auto-Config Generation**: AI successes create configs for future deterministic use
+- **Auto-Config Generation**: Fallback successes create configs for future deterministic use
 - **CAPTCHA Solving**: Automated reCAPTCHA handling
 - **Screenshot Documentation**: Visual record of all form interactions
 
