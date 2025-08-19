@@ -15,9 +15,10 @@ Automated data broker deletion requests using a hybrid approach: deterministic a
 
 1. Create virtual env and install dependencies:
     ```
-    python -m venv .venv
+    uv venv
     source .venv/bin/activate
-    pip install .
+    uv pip install .
+    playwright install
     ```
 
 2. Create a `.env`:
@@ -25,10 +26,10 @@ Automated data broker deletion requests using a hybrid approach: deterministic a
     cp .env.template .env
     ```
 
-3. Get an OpenAI API key and fill it in `.env`. Also add ANTICAPTCHA_API_KEY if using CAPTCHA solving features (required for some brokers like Acxiom).
+3. Set up env vars in `.env`: `OPENAI_API_KEY` from OpenAI and optionally `ANTICAPTCHA_API_KEY` from [AntiCaptcha](https://anti-captcha.com).
 
 4. Download Google OAuth credentials into the main directory of this repo under `credentials.json` (Gmail accounts only).
-    - Go to https://console.cloud.google.com/
+    - Go to [Google Cloud Console](https://console.cloud.google.com/)
     - Create a new project or select existing one
     - Enable Gmail API ("APIs & Services" > "Library", search for Gmail API, click "Enable")
     - Create OAuth 2.0 credentials ("APIs & Services" > "Credentials"; click "Create Credentials" > "OAuth client ID"; choose "Desktop app" type)
